@@ -1,0 +1,305 @@
+import { Router, type IRouter, type Request, type Response } from "express";
+import { db, ordersTable, cartItemsTable, productsTable, usersTable, notificationsTable, cashbackCodesTable } from "@workspace/db";
+import { and, eq, desc, inArray } from "drizzle-orm";
+import { PlaceOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
+import { serializeOrder } from "../lib/serializers";
+import { generateTrackingCode } from "../lib/tracking";
+import { requireRole, getUserFromCookie } from "../lib/auth";
+import { sendOrderEmail } from "./email";
+import { logger } from "../lib/logger";
+
+const router: IRouter = Router();
+
+export async function placeOrderForSession(
+  sessionId: string,
+  shippingAddress: string,
+  placedBy: "user" | "ai",
+  userId?: number,
+  extras?: {
+    receiverName?: string;
+    receiverEmail?: string;
+    receiverPhone?: string;
+    cashbackCode?: string;
+    paymentScreenshotUrl?: string;
+    paymentNote?: string;
+  },
+) {
+  const items = await db
+    .select()
+    .from(cartItemsTable)
+    .where(eq(cartItemsTable.sessionId, sessionId));
+
+  if (items.length === 0) {
+    return { error: "Cart is empty" as const };
+  }
+
+  const products = await db
+    .select()
+    .from(productsTable)
+    .where(inArray(productsTable.id, items.map((i) => i.productId)));
+  const byId = new Map(products.map((p) => [p.id, p]));
+
+  let total = 0;
+  const orderItems = items.map((i) => {
+    const p = byId.get(i.productId)!;
+    total += i.quantity * p.price;
+    return {
+      productId: p.id,
+      productName: p.name,
+      quantity: i.quantity,
+      unitPrice: p.price,
+      imageUrl: p.imageUrl,
+    };
+  });
+  total = Math.round(total * 100) / 100;
+
+  let cashbackDiscount: number | null = null;
+  let validatedCashbackCode: string | null = null;
+
+  if (extras?.cashbackCode) {
+    const [cb] = await db.select().from(cashbackCodesTable)
+      .where(eq(cashbackCodesTable.code, extras.cashbackCode.toUpperCase()));
+    if (cb && cb.isActive && cb.usedCount < cb.maxUses) {
+      cashbackDiscount = cb.amount;
+      validatedCashbackCode = cb.code;
+      total = Math.max(0, Math.round((total - cb.amount) * 100) / 100);
+      await db.update(cashbackCodesTable).set({ usedCount: cb.usedCount + 1 })
+        .where(eq(cashbackCodesTable.id, cb.id));
+    }
+  }
+
+  const [order] = await db
+    .insert(ordersTable)
+    .values({
+      sessionId,
+      userId: userId ?? null,
+      status: "placed",
+      total,
+      currency: "USD",
+      trackingCode: generateTrackingCode(),
+      shippingAddress,
+      receiverName: extras?.receiverName ?? null,
+      receiverEmail: extras?.receiverEmail ?? null,
+      receiverPhone: extras?.receiverPhone ?? null,
+      cashbackCode: validatedCashbackCode,
+      cashbackDiscount,
+      placedBy,
+      items: orderItems,
+      paymentScreenshotUrl: extras?.paymentScreenshotUrl ?? null,
+      paymentNote: extras?.paymentNote ?? null,
+      paymentVerified: "pending",
+    })
+    .returning();
+
+  await db.delete(cartItemsTable).where(eq(cartItemsTable.sessionId, sessionId));
+
+  return { order: order! };
+}
+
+export async function sendPlacedEmailAndNotification(
+  order: { trackingCode: string; total: number; currency: string; shippingAddress: string },
+  userId: number,
+) {
+  const [userRow] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!userRow?.email) return;
+  await sendOrderEmail({
+    to: userRow.email,
+    name: userRow.name,
+    orderStatus: "placed",
+    trackingCode: order.trackingCode,
+    total: order.total,
+    currency: order.currency,
+    shippingAddress: order.shippingAddress,
+  });
+  await db.insert(notificationsTable).values({
+    userId: userRow.id,
+    title: `Order ${order.trackingCode} placed`,
+    message: `Your order has been placed successfully. Total: $${order.total.toLocaleString()}.`,
+  });
+}
+
+router.get("/orders", async (req: Request, res: Response) => {
+  const rows = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.sessionId, req.sessionId))
+    .orderBy(desc(ordersTable.createdAt));
+  res.json(rows.map(serializeOrder));
+});
+
+router.post("/orders", async (req: Request, res: Response) => {
+  const parsed = PlaceOrderBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body" });
+    return;
+  }
+  const user = await getUserFromCookie(req);
+  const placedBy = (parsed.data.placedBy as "user" | "ai" | undefined) ?? "user";
+  const body = req.body as {
+    receiverName?: string;
+    receiverEmail?: string;
+    receiverPhone?: string;
+    cashbackCode?: string;
+    paymentScreenshotUrl?: string;
+    paymentNote?: string;
+  };
+  const result = await placeOrderForSession(req.sessionId, parsed.data.shippingAddress, placedBy, user?.id, {
+    receiverName: body.receiverName,
+    receiverEmail: body.receiverEmail,
+    receiverPhone: body.receiverPhone,
+    cashbackCode: body.cashbackCode,
+    paymentScreenshotUrl: body.paymentScreenshotUrl,
+    paymentNote: body.paymentNote,
+  });
+  if ("error" in result) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+  if (user?.id) {
+    try { await sendPlacedEmailAndNotification(result.order, user.id); } catch (err) { logger.error({ err }, "order placed email failed"); }
+  }
+  if (result.order.paymentScreenshotUrl) {
+    try {
+      const adminUsers = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.role, "admin"));
+      if (adminUsers.length > 0) {
+        await db.insert(notificationsTable).values(
+          adminUsers.map((a) => ({
+            userId: a.id,
+            title: `Payment screenshot — Order ${result.order.trackingCode}`,
+            message: `A customer has uploaded a payment screenshot for order ${result.order.trackingCode} (${new Intl.NumberFormat("en-US", { style: "currency", currency: result.order.currency }).format(result.order.total)}). Please review and verify.`,
+          }))
+        );
+      }
+    } catch (err) { logger.error({ err }, "admin payment notification failed"); }
+  }
+  res.status(201).json(serializeOrder(result.order));
+});
+
+router.patch(
+  "/orders/:id/status",
+  requireRole("admin", "pm"),
+  async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    const parsed = UpdateOrderStatusBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid body" });
+      return;
+    }
+    const [updated] = await db
+      .update(ordersTable)
+      .set({ status: parsed.data.status })
+      .where(eq(ordersTable.id, id))
+      .returning();
+    if (!updated) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
+    if (updated.userId) {
+      try {
+        const [userRow] = await db
+          .select()
+          .from(usersTable)
+          .where(eq(usersTable.id, updated.userId));
+
+        if (userRow?.email) {
+          await sendOrderEmail({
+            to: userRow.email,
+            name: userRow.name,
+            orderStatus: updated.status,
+            trackingCode: updated.trackingCode,
+            total: updated.total,
+            currency: updated.currency,
+            shippingAddress: updated.shippingAddress,
+          });
+          await db.insert(notificationsTable).values({
+            userId: userRow.id,
+            title: `Order ${updated.trackingCode}`,
+            message: `Your order status has been updated to: ${updated.status}.`,
+          });
+        }
+      } catch (err) { logger.error({ err }, "order status email failed"); }
+    }
+
+    res.json(serializeOrder(updated));
+  },
+);
+
+router.patch("/orders/:id/resubmit-payment", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const { paymentScreenshotUrl, paymentNote } = req.body as {
+    paymentScreenshotUrl?: string;
+    paymentNote?: string;
+  };
+  if (!paymentScreenshotUrl) {
+    res.status(400).json({ error: "paymentScreenshotUrl required" });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(ordersTable)
+    .where(and(eq(ordersTable.id, id), eq(ordersTable.sessionId, req.sessionId)));
+  if (!existing) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (existing.paymentVerified !== "rejected") {
+    res.status(400).json({ error: "Only rejected payments can be resubmitted" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(ordersTable)
+    .set({
+      paymentScreenshotUrl,
+      paymentNote: paymentNote ?? null,
+      paymentVerified: "pending",
+    })
+    .where(eq(ordersTable.id, id))
+    .returning();
+
+  try {
+    const adminUsers = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.role, "admin"));
+    if (adminUsers.length > 0) {
+      await db.insert(notificationsTable).values(
+        adminUsers.map((a) => ({
+          userId: a.id,
+          title: `Resubmitted screenshot — Order ${updated.trackingCode}`,
+          message: `A customer has resubmitted their payment screenshot for order ${updated.trackingCode}. Please review and verify.`,
+        }))
+      );
+    }
+  } catch (err) { logger.error({ err }, "admin resubmit notification failed"); }
+
+  res.json(serializeOrder(updated!));
+});
+
+router.get("/orders/:id", async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const [row] = await db
+    .select()
+    .from(ordersTable)
+    .where(and(eq(ordersTable.id, id), eq(ordersTable.sessionId, req.sessionId)));
+  if (!row) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  res.json(serializeOrder(row));
+});
+
+export default router;
