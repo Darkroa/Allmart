@@ -85,6 +85,7 @@ export async function sendAdminPaymentAlert(opts: {
   customerEmail: string;
   shippingAddress: string;
   paymentNote?: string | null;
+  adminUrl?: string;
 }) {
   const adminEmail = process.env.ADMIN_EMAIL ?? "admin@nowbuy.com";
   if (!process.env.RESEND_API_KEY) return;
@@ -125,7 +126,7 @@ export async function sendAdminPaymentAlert(opts: {
             <td style="padding:12px 16px;font-style:italic">${opts.paymentNote}</td>
           </tr>` : ""}
         </table>
-        <a href="https://${process.env.REPLIT_DEV_DOMAIN ?? "localhost"}/orders"
+        <a href="${opts.adminUrl ?? "https://allmart.replit.app"}/orders"
            style="display:inline-block;background:#1a56e8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px">
           Review in Admin Panel →
         </a>

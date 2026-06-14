@@ -1,0 +1,14 @@
+import { pgTable, serial, integer, real, boolean, timestamp } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
+
+export const referralsTable = pgTable("referrals", {
+  id: serial("id").primaryKey(),
+  referrerId: integer("referrer_id").notNull().references(() => usersTable.id),
+  referredId: integer("referred_id").notNull().unique().references(() => usersTable.id),
+  referrerBonus: real("referrer_bonus").notNull(),
+  referredBonus: real("referred_bonus").notNull(),
+  referrerClaimed: boolean("referrer_claimed").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Referral = typeof referralsTable.$inferSelect;

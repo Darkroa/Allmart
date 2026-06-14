@@ -16,6 +16,7 @@ import { AdminDashboard } from "@/components/admin-dashboard";
 import { AdminVisitors } from "@/components/admin-visitors";
 import { AdminTelegram } from "@/components/admin-telegram";
 import { CsvImportExport } from "@/components/csv-import-export";
+import { AdminReferrals } from "@/components/admin-referrals";
 import {
   ShieldCheck,
   Users as UsersIcon,
@@ -30,6 +31,7 @@ import {
   Globe,
   Eye,
   Send,
+  Gift,
 } from "lucide-react";
 
 type Section =
@@ -45,7 +47,8 @@ type Section =
   | "cashback"
   | "landing-pages"
   | "visitors"
-  | "telegram";
+  | "telegram"
+  | "referrals";
 
 export default function Admin({ section = "dashboard" }: { section?: Section }) {
   const [, setLocation] = useLocation();
@@ -163,6 +166,13 @@ export default function Admin({ section = "dashboard" }: { section?: Section }) 
         <>
           <StaffPageHeader icon={Send} title="Telegram bot" description="Register the webhook and see available bot commands for your AllMart bot." />
           <AdminTelegram />
+        </>
+      )}
+
+      {section === "referrals" && (
+        <>
+          <StaffPageHeader icon={Gift} title="Referrals" description="Manage referral bonuses, signup rewards, and view all referral records." />
+          <AdminReferrals />
         </>
       )}
     </div>

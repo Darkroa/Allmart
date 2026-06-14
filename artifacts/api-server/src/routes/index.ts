@@ -21,6 +21,9 @@ import telegramRouter from "./telegram";
 import usersAdminRouter from "./users-admin";
 import sitemapRouter from "./sitemap";
 import ordersExportRouter from "./orders-export";
+import profileRouter from "./profile";
+import referralRouter from "./referral";
+import adminReferralsRouter from "./admin-referrals";
 
 const router: IRouter = Router();
 
@@ -46,5 +49,8 @@ router.use(telegramRouter);
 router.use(usersAdminRouter);
 router.use(sitemapRouter);
 router.use(ordersExportRouter);
+router.use(profileRouter);
+router.use(referralRouter);
+router.use(adminReferralsRouter);
 
 export default router;

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   signIn,
@@ -15,6 +15,7 @@ type Mode = "signin" | "signup";
 
 export default function Account() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
@@ -22,6 +23,11 @@ export default function Account() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    if (params.get("ref")) setMode("signup");
+  }, [search]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,14 +38,30 @@ export default function Account() {
     }
     setSubmitting(true);
     try {
-      const res =
-        mode === "signin"
-          ? await signIn({ email, password })
-          : await signUp({ name, email, password });
+      let res: { role?: string };
+      if (mode === "signin") {
+        res = await signIn({ email, password });
+      } else {
+        const params = new URLSearchParams(search);
+        const refCode = params.get("ref");
+        if (refCode) {
+          const r = await fetch("/api/auth/signup", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password, referralCode: refCode }),
+          });
+          const data = await r.json();
+          if (!r.ok) throw Object.assign(new Error(), { response: { data } });
+          res = data;
+        } else {
+          res = await signUp({ name, email, password });
+        }
+      }
       await queryClient.invalidateQueries({
         queryKey: getGetCurrentUserQueryKey(),
       });
-      const role = (res as { role?: string })?.role;
+      const role = res?.role;
       if (role === "admin") setLocation("/admin");
       else if (role === "pm") setLocation("/pm");
       else setLocation("/");

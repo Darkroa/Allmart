@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useGetCart } from "@workspace/api-client-react";
+import { useGetCart, useGetCurrentUser } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight, ArrowLeft, MapPin, Package, User, Tag, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowRight, ArrowLeft, MapPin, Package, User, Tag, CheckCircle2, XCircle, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const STORAGE_KEY = "nb_checkout_address";
 const CONTACT_KEY = "nb_checkout_contact";
 const CASHBACK_KEY = "nb_checkout_cashback";
+const BONUS_KEY = "nb_checkout_bonus";
 
 type Contact = { name: string; email: string; phone: string };
 type CashbackState = { code: string; amount: number } | null;
@@ -21,6 +22,8 @@ export default function Checkout() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { data: cart, isLoading } = useGetCart();
+  const { data: meData } = useGetCurrentUser();
+  const me = meData?.user ?? null;
 
   const [shippingAddress, setShippingAddress] = useState(
     () => localStorage.getItem(STORAGE_KEY) ?? "",
@@ -35,6 +38,12 @@ export default function Checkout() {
     catch { return null; }
   });
   const [validating, setValidating] = useState(false);
+  const [useBonus, setUseBonus] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(BONUS_KEY) ?? "false"); }
+    catch { return false; }
+  });
+
+  const bonusBalance = (me as { bonusBalance?: number } | null)?.bonusBalance ?? 0;
 
   useEffect(() => {
     if (!isLoading && cart && cart.items.length === 0) setLocation("/cart");
@@ -71,10 +80,16 @@ export default function Checkout() {
     localStorage.removeItem(CASHBACK_KEY);
   }
 
+  function toggleBonus(checked: boolean) {
+    setUseBonus(checked);
+    localStorage.setItem(BONUS_KEY, JSON.stringify(checked));
+  }
+
   function continueToPayment() {
     if (shippingAddress.trim().length < 3) return;
     localStorage.setItem(STORAGE_KEY, shippingAddress.trim());
     localStorage.setItem(CONTACT_KEY, JSON.stringify(contact));
+    localStorage.setItem(BONUS_KEY, JSON.stringify(useBonus));
     setLocation("/payment");
   }
 
@@ -99,7 +114,9 @@ export default function Checkout() {
     ? Math.max(0, cart.subtotal - cashback.amount)
     : cart.subtotal;
 
-  const grandTotal = discountedSubtotal + totalShipping;
+  const bonusApplied = useBonus && bonusBalance > 0;
+  const bonusDeduction = bonusApplied ? Math.min(bonusBalance, discountedSubtotal + totalShipping) : 0;
+  const grandTotal = Math.max(0, discountedSubtotal + totalShipping - bonusDeduction);
 
   const canContinue =
     shippingAddress.trim().length >= 3 &&
@@ -241,6 +258,34 @@ export default function Checkout() {
                 ? <span className="text-red-500 font-medium">{fmt(totalShipping)}</span>
                 : <span className="text-emerald-600 font-medium">Free</span>}
             </div>
+
+            {/* Bonus balance toggle */}
+            {me && bonusBalance > 0 && (
+              <div className="pt-1">
+                <label className="flex items-start gap-3 cursor-pointer p-2.5 rounded-xl border border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={useBonus}
+                    onChange={e => toggleBonus(e.target.checked)}
+                    className="mt-0.5 accent-violet-600"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <Gift className="h-3.5 w-3.5 text-violet-600" />
+                      <span className="text-sm font-medium text-violet-700">Use my bonus balance</span>
+                    </div>
+                    <p className="text-xs text-violet-500 mt-0.5">{fmt(bonusBalance)} available</p>
+                  </div>
+                </label>
+                {bonusApplied && (
+                  <div className="flex justify-between text-sm text-violet-600 font-medium mt-2">
+                    <span>Bonus discount</span>
+                    <span>-{fmt(bonusDeduction)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-between font-bold text-lg pt-2 border-t border-border/30">
               <span>Total</span>
               <span>{fmt(grandTotal)}</span>

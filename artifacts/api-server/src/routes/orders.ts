@@ -22,6 +22,7 @@ export async function placeOrderForSession(
     cashbackCode?: string;
     paymentScreenshotUrl?: string;
     paymentNote?: string;
+    bonusApplied?: boolean;
   },
 ) {
   const items = await db
@@ -68,6 +69,17 @@ export async function placeOrderForSession(
     }
   }
 
+  let bonusDiscount: number | null = null;
+  if (extras?.bonusApplied && userId) {
+    const [userRow] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+    if (userRow && userRow.bonusBalance > 0) {
+      bonusDiscount = Math.min(userRow.bonusBalance, total);
+      total = Math.max(0, Math.round((total - bonusDiscount) * 100) / 100);
+      const newBalance = Math.round((userRow.bonusBalance - bonusDiscount) * 100) / 100;
+      await db.update(usersTable).set({ bonusBalance: newBalance }).where(eq(usersTable.id, userId));
+    }
+  }
+
   const [order] = await db
     .insert(ordersTable)
     .values({
@@ -88,6 +100,7 @@ export async function placeOrderForSession(
       paymentScreenshotUrl: extras?.paymentScreenshotUrl ?? null,
       paymentNote: extras?.paymentNote ?? null,
       paymentVerified: "pending",
+      bonusDiscount,
     })
     .returning();
 
@@ -142,6 +155,7 @@ router.post("/orders", async (req: Request, res: Response) => {
     cashbackCode?: string;
     paymentScreenshotUrl?: string;
     paymentNote?: string;
+    bonusApplied?: boolean;
   };
   const result = await placeOrderForSession(req.sessionId, parsed.data.shippingAddress, placedBy, user?.id, {
     receiverName: body.receiverName,
@@ -150,6 +164,7 @@ router.post("/orders", async (req: Request, res: Response) => {
     cashbackCode: body.cashbackCode,
     paymentScreenshotUrl: body.paymentScreenshotUrl,
     paymentNote: body.paymentNote,
+    bonusApplied: body.bonusApplied,
   });
   if ("error" in result) {
     res.status(400).json({ error: result.error });

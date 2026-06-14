@@ -1,8 +1,9 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, referralsTable, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { SignUpBody, SignInBody } from "@workspace/api-zod";
+import { getUserFromCookie } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -14,8 +15,44 @@ const COOKIE_OPTS = {
   path: "/",
 };
 
-function publicUser(u: { id: number; email: string; name: string; role: string; tier: number }) {
-  return { id: u.id, email: u.email, name: u.name, role: u.role, tier: u.tier };
+function generateReferralCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 8; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+async function uniqueReferralCode(): Promise<string> {
+  for (let i = 0; i < 10; i++) {
+    const code = generateReferralCode();
+    const [existing] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.referralCode, code));
+    if (!existing) return code;
+  }
+  return generateReferralCode() + Math.floor(Math.random() * 100);
+}
+
+async function getSetting(key: string, fallback: string) {
+  const [row] = await db.select().from(settingsTable).where(eq(settingsTable.key, key));
+  return row?.value ?? fallback;
+}
+
+function publicUser(u: typeof usersTable.$inferSelect) {
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    role: u.role,
+    tier: u.tier,
+    country: u.country ?? null,
+    phone: u.phone ?? null,
+    sex: u.sex ?? null,
+    address: u.address ?? null,
+    profileComplete: u.profileComplete,
+    referralCode: u.referralCode ?? null,
+    bonusBalance: u.bonusBalance,
+  };
 }
 
 router.post("/auth/signup", async (req: Request, res: Response) => {
@@ -26,21 +63,49 @@ router.post("/auth/signup", async (req: Request, res: Response) => {
   }
   const { email, name, password } = parsed.data;
   const normalized = email.trim().toLowerCase();
+  const refCode = (req.body as { referralCode?: string }).referralCode?.trim().toUpperCase() ?? null;
 
-  const [existing] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.email, normalized));
+  const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, normalized));
   if (existing) {
     res.status(409).json({ error: "An account with that email already exists" });
     return;
   }
 
+  const referralCode = await uniqueReferralCode();
   const passwordHash = await bcrypt.hash(password, 10);
+
+  let signupBonus = 0;
+  let referrer: typeof usersTable.$inferSelect | null = null;
+
+  if (refCode) {
+    const [ref] = await db.select().from(usersTable).where(eq(usersTable.referralCode, refCode));
+    if (ref) {
+      referrer = ref;
+      signupBonus = Number(await getSetting("referralSignupBonus", "20"));
+    }
+  }
+
   const [user] = await db
     .insert(usersTable)
-    .values({ email: normalized, name, passwordHash, role: "buyer" })
+    .values({
+      email: normalized,
+      name,
+      passwordHash,
+      role: "buyer",
+      referralCode,
+      bonusBalance: signupBonus,
+    })
     .returning();
+
+  if (referrer && user) {
+    const referrerBonus = Number(await getSetting("referralReferrerBonus", "10"));
+    await db.insert(referralsTable).values({
+      referrerId: referrer.id,
+      referredId: user.id,
+      referrerBonus,
+      referredBonus: signupBonus,
+    }).onConflictDoNothing();
+  }
 
   res.cookie(AUTH_COOKIE, String(user!.id), COOKIE_OPTS);
   res.json(publicUser(user!));
@@ -55,10 +120,7 @@ router.post("/auth/signin", async (req: Request, res: Response) => {
   const { email, password } = parsed.data;
   const normalized = email.trim().toLowerCase();
 
-  const [user] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.email, normalized));
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, normalized));
   if (!user) {
     res.status(401).json({ error: "Invalid email or password" });
     return;
@@ -73,7 +135,7 @@ router.post("/auth/signin", async (req: Request, res: Response) => {
   res.json(publicUser(user));
 });
 
-router.post("/auth/signout", (req: Request, res: Response) => {
+router.post("/auth/signout", (_req: Request, res: Response) => {
   res.clearCookie(AUTH_COOKIE, { path: "/" });
   res.status(204).end();
 });
@@ -87,6 +149,29 @@ router.get("/auth/me", async (req: Request, res: Response) => {
   }
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
   res.json({ user: user ? publicUser(user) : null });
+});
+
+router.patch("/auth/password", async (req: Request, res: Response) => {
+  const user = await getUserFromCookie(req);
+  if (!user) { res.status(401).json({ error: "Sign in required" }); return; }
+
+  const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "currentPassword and newPassword are required" });
+    return;
+  }
+  if (newPassword.length < 6) {
+    res.status(400).json({ error: "Password must be at least 6 characters" });
+    return;
+  }
+  const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!ok) {
+    res.status(401).json({ error: "Current password is incorrect" });
+    return;
+  }
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, user.id));
+  res.json({ ok: true });
 });
 
 export default router;

@@ -16,8 +16,19 @@ import {
   Store,
   LogOut,
   UserCircle2,
+  UserCog,
+  Lock,
+  Users,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { StaffSidebarTrigger } from "@/components/staff-sidebar";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -91,17 +102,43 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {isStaff ? (
                   <StaffSidebarTrigger role={me.role as "admin" | "pm"} name={me.name} />
                 ) : (
-                  <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/5 border border-primary/10 max-w-[110px]">
-                    <UserCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                    <span className="text-xs font-medium truncate">{me.name}</span>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/5 border border-primary/10 max-w-[130px] hover:bg-primary/10 transition-colors">
+                        <UserCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="text-xs font-medium truncate">{me.name}</span>
+                        <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem asChild>
+                        <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
+                          <UserCog className="h-4 w-4" /> Profile
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/referral" className="flex items-center gap-2 cursor-pointer">
+                          <Users className="h-4 w-4" /> Referrals & Bonus
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/security" className="flex items-center gap-2 cursor-pointer">
+                          <Lock className="h-4 w-4" /> Security
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive gap-2 cursor-pointer">
+                        <LogOut className="h-4 w-4" /> Sign out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
                 <NotificationsBell enabled={true} />
                 {!isStaff && (
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary"
+                    className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary sm:hidden"
                     onClick={handleSignOut}
                     aria-label="Sign out"
                   >

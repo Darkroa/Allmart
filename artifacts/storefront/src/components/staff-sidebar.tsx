@@ -36,6 +36,7 @@ import {
   Globe,
   Eye,
   Send,
+  Gift,
 } from "lucide-react";
 
 type NavItem = {
@@ -56,6 +57,7 @@ const ADMIN_ITEMS: NavItem[] = [
   { href: "/admin/support", label: "Support desk", icon: HeadphonesIcon },
   { href: "/admin/visitors", label: "Visitors", icon: Eye },
   { href: "/admin/telegram", label: "Telegram bot", icon: Send },
+  { href: "/admin/referrals", label: "Referrals", icon: Gift },
   { href: "/admin/bank", label: "Bank details", icon: Landmark },
   { href: "/admin/password", label: "Admin password", icon: KeyRound },
 ];

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, boolean, real } from "drizzle-orm/pg-core";
 
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -7,6 +7,13 @@ export const usersTable = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   role: text("role").notNull().default("buyer"),
   tier: integer("tier").notNull().default(0),
+  country: text("country"),
+  phone: text("phone"),
+  sex: text("sex"),
+  address: text("address"),
+  profileComplete: boolean("profile_complete").notNull().default(false),
+  referralCode: text("referral_code").unique(),
+  bonusBalance: real("bonus_balance").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

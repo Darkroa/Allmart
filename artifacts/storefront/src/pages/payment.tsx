@@ -28,6 +28,7 @@ import {
   Upload,
   X,
   ImageIcon,
+  Gift,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useImageUpload } from "@/hooks/use-image-upload";
@@ -35,6 +36,7 @@ import { useImageUpload } from "@/hooks/use-image-upload";
 const STORAGE_KEY = "nb_checkout_address";
 const CONTACT_KEY = "nb_checkout_contact";
 const CASHBACK_KEY = "nb_checkout_cashback";
+const BONUS_KEY = "nb_checkout_bonus";
 
 type Method = "stripe" | "transfer" | "delivery";
 
@@ -54,7 +56,7 @@ export default function Payment() {
   const { toast } = useToast();
   const { data: cart, isLoading } = useGetCart();
   const { data: authData } = useGetCurrentUser();
-  const user = authData?.user as ({ tier?: number } & typeof authData.user) | null | undefined;
+  const user = authData?.user as ({ tier?: number; bonusBalance?: number } & typeof authData.user) | null | undefined;
   const [method, setMethod] = useState<Method>("stripe");
   const [bankDetails, setBankDetails] = useState<BankDetails | null>(null);
   const [cautionNote, setCautionNote] = useState<string>("");
@@ -63,7 +65,6 @@ export default function Payment() {
     () => "AM" + Math.random().toString(36).slice(2, 8).toUpperCase(),
   );
 
-  // Payment screenshot state
   const { upload, isUploading, progress } = useImageUpload();
   const fileRef = useRef<HTMLInputElement>(null);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
@@ -81,6 +82,11 @@ export default function Payment() {
   const cashback: CashbackState = (() => {
     try { return JSON.parse(localStorage.getItem(CASHBACK_KEY) ?? "null"); }
     catch { return null; }
+  })();
+
+  const bonusApplied: boolean = (() => {
+    try { return JSON.parse(localStorage.getItem(BONUS_KEY) ?? "false"); }
+    catch { return false; }
   })();
 
   // Redirect guests to sign-in before payment
@@ -115,6 +121,7 @@ export default function Payment() {
       onSuccess: (order) => {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(CASHBACK_KEY);
+        localStorage.removeItem(BONUS_KEY);
         queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
         queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
         toast({ title: "Order placed!", description: "Your order is on the way." });
@@ -138,7 +145,6 @@ export default function Payment() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    // Show preview immediately
     const reader = new FileReader();
     reader.onload = (ev) => setScreenshotPreview(ev.target?.result as string);
     reader.readAsDataURL(file);
@@ -163,6 +169,7 @@ export default function Payment() {
         cashbackCode: cashback?.code || undefined,
         paymentScreenshotUrl: screenshotUrl || undefined,
         paymentNote: paymentNote.trim() || undefined,
+        bonusApplied: bonusApplied || undefined,
       } as Parameters<typeof placeOrder.mutate>[0]["data"],
     });
   }
@@ -225,7 +232,9 @@ export default function Payment() {
     ? Math.max(0, cart.subtotal - cashback.amount)
     : cart.subtotal;
 
-  const grandTotal = discountedSubtotal + totalShipping;
+  const userBonusBalance = user?.bonusBalance ?? 0;
+  const bonusDeduction = bonusApplied ? Math.min(userBonusBalance, discountedSubtotal + totalShipping) : 0;
+  const grandTotal = Math.max(0, discountedSubtotal + totalShipping - bonusDeduction);
 
   return (
     <div className="container max-w-screen-lg mx-auto py-12 px-6">
@@ -285,8 +294,8 @@ export default function Payment() {
           {method === "stripe" && (
             <ProviderCard
               title="Pay securely with Stripe"
-              description={<>Opens Stripe's checkout in a new tab. Pay <strong className="text-foreground">{fmt(discountedSubtotal)}</strong> via Visa, Mastercard, or other cards. After payment, you'll be redirected back automatically.</>}
-              buttonLabel={`Pay ${fmt(discountedSubtotal)} with Stripe`}
+              description={<>Opens Stripe's checkout in a new tab. Pay <strong className="text-foreground">{fmt(grandTotal)}</strong> via Visa, Mastercard, or other cards. After payment, you'll be redirected back automatically.</>}
+              buttonLabel={`Pay ${fmt(grandTotal)} with Stripe`}
               loading={providerLoading}
               onClick={openStripeCheckout}
             />
@@ -324,7 +333,6 @@ export default function Payment() {
                 <p className="text-sm text-muted-foreground">Bank details not yet configured. Please contact the store.</p>
               )}
 
-              {/* Caution note */}
               <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex gap-3 items-start">
                 <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 <div className="text-xs text-amber-800 leading-relaxed">
@@ -333,7 +341,6 @@ export default function Payment() {
                 </div>
               </div>
 
-              {/* Payment screenshot upload */}
               <div className="mt-6 space-y-3">
                 <Label className="text-sm font-semibold">Upload payment screenshot <span className="text-muted-foreground font-normal">(recommended)</span></Label>
                 <p className="text-xs text-muted-foreground">Attach your payment receipt or screenshot to help us verify your order faster.</p>
@@ -388,7 +395,6 @@ export default function Payment() {
                 />
               </div>
 
-              {/* Optional payment note */}
               <div className="mt-4 space-y-2">
                 <Label htmlFor="pay-note" className="text-sm font-semibold">Additional note <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <Textarea
@@ -406,7 +412,7 @@ export default function Payment() {
             <Card className="p-6 border-border/50 shadow-sm">
               <p className="text-sm text-muted-foreground">
                 Our courier will collect payment on delivery. You'll be charged{" "}
-                <span className="font-semibold text-foreground">{fmt(discountedSubtotal)}</span>{" "}
+                <span className="font-semibold text-foreground">{fmt(grandTotal)}</span>{" "}
                 when your order arrives. Click below to confirm your order.
               </p>
             </Card>
@@ -425,8 +431,8 @@ export default function Payment() {
                 : isUploading
                 ? "Uploading screenshot…"
                 : method === "transfer"
-                ? `I've paid · ${fmt(discountedSubtotal)}`
-                : `Confirm order · ${fmt(discountedSubtotal)}`}
+                ? `I've paid · ${fmt(grandTotal)}`
+                : `Confirm order · ${fmt(grandTotal)}`}
             </Button>
           )}
         </div>
@@ -468,6 +474,12 @@ export default function Payment() {
                 ? <span className="text-red-500 font-medium">{fmt(totalShipping)}</span>
                 : <span className="text-emerald-600 font-medium">Free</span>}
             </div>
+            {bonusApplied && bonusDeduction > 0 && (
+              <div className="flex justify-between text-sm text-violet-600 font-medium">
+                <span className="flex items-center gap-1"><Gift className="h-3.5 w-3.5" /> Bonus balance</span>
+                <span>-{fmt(bonusDeduction)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-bold text-lg pt-2 border-t border-border/30">
               <span>Total</span>
               <span>{fmt(grandTotal)}</span>

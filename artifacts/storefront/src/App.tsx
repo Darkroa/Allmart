@@ -1,8 +1,11 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useVisitorTracker } from "@/hooks/use-visitor-tracker";
+import { useGetCurrentUser, getGetCurrentUserQueryKey } from "@workspace/api-client-react";
+import { useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 import NotFound from "@/pages/not-found";
 import { Layout } from "@/components/layout";
 import Home from "@/pages/home";
@@ -22,13 +25,40 @@ import Notifications from "@/pages/notifications";
 import Support from "@/pages/support";
 import PaymentCallback from "@/pages/payment-callback";
 import ShopLanding from "@/pages/shop-landing";
+import Profile from "@/pages/profile";
+import Security from "@/pages/security";
+import Referral from "@/pages/referral";
 
 const queryClient = new QueryClient();
+
+const PROFILE_EXEMPT = ["/profile", "/account", "/signin", "/signup", "/reset-password"];
+
+function ProfileGate() {
+  const [location, setLocation] = useLocation();
+  const { toast } = useToast();
+  const { data: meData, isLoading } = useGetCurrentUser();
+  const me = meData?.user ?? null;
+
+  useEffect(() => {
+    if (isLoading || !me) return;
+    const exempt = PROFILE_EXEMPT.some(p => location === p || location.startsWith(p + "/"));
+    if (!(me as { profileComplete?: boolean }).profileComplete && !exempt) {
+      toast({
+        title: "Complete your profile",
+        description: "Please fill in your details to continue.",
+      });
+      setLocation("/profile");
+    }
+  }, [isLoading, me, location, setLocation, toast]);
+
+  return null;
+}
 
 function Router() {
   useVisitorTracker();
   return (
     <Layout>
+      <ProfileGate />
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/products" component={Products} />
@@ -46,6 +76,9 @@ function Router() {
         <Route path="/notifications" component={Notifications} />
         <Route path="/support" component={Support} />
         <Route path="/shop/:slug" component={ShopLanding} />
+        <Route path="/profile" component={Profile} />
+        <Route path="/security" component={Security} />
+        <Route path="/referral" component={Referral} />
         <Route path="/admin" component={() => <Admin section="dashboard" />} />
         <Route path="/admin/users" component={() => <Admin section="users" />} />
         <Route path="/admin/orders" component={() => <Admin section="orders" />} />
@@ -59,6 +92,7 @@ function Router() {
         <Route path="/admin/landing-pages" component={() => <Admin section="landing-pages" />} />
         <Route path="/admin/visitors" component={() => <Admin section="visitors" />} />
         <Route path="/admin/telegram" component={() => <Admin section="telegram" />} />
+        <Route path="/admin/referrals" component={() => <Admin section="referrals" />} />
         <Route path="/pm" component={() => <PMConsole section="dashboard" />} />
         <Route path="/pm/orders" component={() => <PMConsole section="orders" />} />
         <Route path="/pm/catalog" component={() => <PMConsole section="catalog" />} />

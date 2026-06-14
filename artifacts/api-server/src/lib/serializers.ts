@@ -39,6 +39,7 @@ export function serializeOrder(o: Order) {
     paymentScreenshotUrl: o.paymentScreenshotUrl ?? null,
     paymentNote: o.paymentNote ?? null,
     paymentVerified: o.paymentVerified ?? "pending",
+    bonusDiscount: (o as { bonusDiscount?: number | null }).bonusDiscount ?? null,
     createdAt: o.createdAt.toISOString(),
     items: o.items,
   };
