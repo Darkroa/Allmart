@@ -186,7 +186,7 @@ export default function Profile() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="p-phone">Phone number</Label>
-              <Input id="p-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+234 800 000 0000" />
+              <Input id="p-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 800 000 0000" />
             </div>
           </div>
 

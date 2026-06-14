@@ -151,7 +151,7 @@ export default function Account() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@allmart.com"
+                placeholder="yourmail@gmail.com"
               />
             </div>
 
@@ -192,7 +192,7 @@ export default function Account() {
         </div>
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          By continuing you agree to our (very friendly){" "}
+          By continuing you agree to our (Allmart T&C){" "}
           <Link href="/" className="underline hover:text-primary">
             terms
           </Link>
