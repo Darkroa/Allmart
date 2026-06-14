@@ -44,7 +44,7 @@ const ALL_METHODS: { id: Method; label: string; icon: React.ReactNode; hint: str
   { id: "delivery", label: "Pay on delivery", icon: <Wallet className="h-4 w-4" />, hint: "Cash or card when your order arrives", minTier: 3 },
 ];
 
-type BankDetails = { bankName: string; accountName: string; accountNumber: string; routingNumber?: string; bankLogo?: string };
+type BankDetails = { bankName: string; accountName: string; accountNumber: string; routingNumber?: string; bankLogo?: string; email?: string };
 type Contact = { name: string; email: string; phone: string };
 type CashbackState = { code: string; amount: number } | null;
 
@@ -216,9 +216,16 @@ export default function Payment() {
     );
   }
 
+  const totalShipping = cart.items.reduce((sum, item) => {
+    const fee = (item.product as { shippingFee?: number | null }).shippingFee ?? 0;
+    return sum + fee * item.quantity;
+  }, 0);
+
   const discountedSubtotal = cashback
     ? Math.max(0, cart.subtotal - cashback.amount)
     : cart.subtotal;
+
+  const grandTotal = discountedSubtotal + totalShipping;
 
   return (
     <div className="container max-w-screen-lg mx-auto py-12 px-6">
@@ -307,7 +314,10 @@ export default function Payment() {
                   {bankDetails.routingNumber && (
                     <PayRow label="Routing number" value={bankDetails.routingNumber} onCopy={copyToClipboard} />
                   )}
-                  <PayRow label="Amount" value={fmt(discountedSubtotal)} onCopy={copyToClipboard} />
+                  {(bankDetails as BankDetails).email && (
+                    <PayRow label="Contact email" value={(bankDetails as BankDetails).email!} onCopy={copyToClipboard} />
+                  )}
+                  <PayRow label="Amount" value={fmt(grandTotal)} onCopy={copyToClipboard} />
                   <PayRow label="Reference" value={reference} onCopy={copyToClipboard} highlight />
                 </dl>
               ) : (
@@ -452,13 +462,15 @@ export default function Payment() {
                 <span>-{fmt(cashback.amount)}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Shipping</span>
-              <span>Free</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Shipping</span>
+              {totalShipping > 0
+                ? <span className="text-red-500 font-medium">{fmt(totalShipping)}</span>
+                : <span className="text-emerald-600 font-medium">Free</span>}
             </div>
             <div className="flex justify-between font-bold text-lg pt-2 border-t border-border/30">
               <span>Total</span>
-              <span>{fmt(discountedSubtotal)}</span>
+              <span>{fmt(grandTotal)}</span>
             </div>
           </div>
           {contact.name && (

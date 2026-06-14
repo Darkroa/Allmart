@@ -18,8 +18,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Trash2, UserCircle2, KeyRound, Copy, Shield } from "lucide-react";
+import { Trash2, UserCircle2, KeyRound, Copy, Shield, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 
 const ROLES = ["buyer", "pm", "admin"] as const;
 const TIERS = [0, 1, 2, 3] as const;
@@ -53,6 +56,30 @@ export function UsersManager({ currentUserId }: { currentUserId: number }) {
   const [issuingFor, setIssuingFor] = useState<number | null>(null);
   const [issuedCode, setIssuedCode] = useState<ResetCodeResponse | null>(null);
   const [tierLoading, setTierLoading] = useState<number | null>(null);
+  const [editUser, setEditUser] = useState<UserWithTier | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  async function saveEditUser() {
+    if (!editUser) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/admin/users/${editUser.id}/profile`, {
+        method: "PATCH", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName.trim(), email: editEmail.trim() }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? "Failed"); }
+      await queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
+      toast({ title: "Profile updated" });
+      setEditUser(null);
+    } catch (err: unknown) {
+      toast({ title: err instanceof Error ? err.message : "Failed to update profile", variant: "destructive" });
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   async function changeRole(user: AuthUser, role: (typeof ROLES)[number]) {
     if (user.role === role) return;
@@ -145,6 +172,11 @@ export function UsersManager({ currentUserId }: { currentUserId: number }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:bg-muted"
+                      onClick={() => { setEditUser(user); setEditName(user.name); setEditEmail(user.email); }}
+                      aria-label="Edit profile" title="Edit name / email">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7 text-primary hover:bg-primary/10"
                       disabled={issuingFor === user.id} onClick={() => generateResetCode(user)}
                       aria-label="Generate password reset code" title="Generate password reset code">
@@ -221,6 +253,33 @@ export function UsersManager({ currentUserId }: { currentUserId: number }) {
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIssuedCode(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit user profile dialog */}
+      <Dialog open={!!editUser} onOpenChange={(o) => { if (!o) setEditUser(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit profile</DialogTitle>
+            <DialogDescription>Update name and email for {editUser?.email}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Full name" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input id="edit-email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} placeholder="user@example.com" />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setEditUser(null)} disabled={editSaving}>Cancel</Button>
+            <Button onClick={saveEditUser} disabled={editSaving || !editName.trim() || !editEmail.trim()} className="gap-2">
+              {editSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

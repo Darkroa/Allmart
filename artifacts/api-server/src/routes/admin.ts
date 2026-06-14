@@ -40,6 +40,19 @@ router.patch("/admin/users/:id", requireRole("admin"), async (req: Request, res:
   res.json(publicUser(updated));
 });
 
+router.patch("/admin/users/:id/profile", requireRole("admin"), async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { name, email } = req.body as { name?: string; email?: string };
+  if (!name && !email) { res.status(400).json({ error: "Provide name or email to update" }); return; }
+  const updates: Record<string, string> = {};
+  if (name && name.trim()) updates.name = name.trim();
+  if (email && email.trim()) updates.email = email.trim().toLowerCase();
+  const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.id, id)).returning();
+  if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(publicUser(updated));
+});
+
 router.delete("/admin/users/:id", requireRole("admin"), async (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id)) {

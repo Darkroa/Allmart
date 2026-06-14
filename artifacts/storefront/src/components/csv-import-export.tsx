@@ -26,6 +26,7 @@ const COLUMNS = [
   "category",
   "price",
   "originalPrice",
+  "shippingFee",
   "stock",
   "sellerName",
   "rating",
@@ -89,7 +90,8 @@ export function CsvImportExport({ sellerName }: { sellerName: string }) {
     const rows = products.map((p) =>
       [
         p.name, p.description, p.category, p.price,
-        p.originalPrice ?? "", p.stock, p.sellerName, p.rating,
+        p.originalPrice ?? "", (p as { shippingFee?: number | null }).shippingFee ?? "",
+        p.stock, p.sellerName, p.rating,
         (p.tags ?? []).join("|"), p.imageUrl,
         (p.colors ?? []).join("|"), p.productType ?? "",
         `${origin}/products/${toProductSlug(p.name, p.id)}`,
@@ -191,6 +193,8 @@ export function CsvImportExport({ sellerName }: { sellerName: string }) {
 
       const origRaw = get("originalprice") || get("original_price");
       const originalPrice = origRaw ? parseFloat(origRaw) : null;
+      const shippingFeeRaw = get("shippingfee") || get("shipping_fee");
+      const shippingFee = shippingFeeRaw ? parseFloat(shippingFeeRaw) : null;
       const rating = parseFloat(get("rating")) || 4.5;
       const tags = get("tags").split("|").map((t) => t.trim()).filter(Boolean);
       const colors = get("colors").split("|").map((c) => c.trim()).filter(Boolean);
@@ -211,12 +215,12 @@ export function CsvImportExport({ sellerName }: { sellerName: string }) {
           tags,
         });
 
-        if (colors.length > 0 || productType || (originalPrice !== null)) {
+        if (colors.length > 0 || productType || (originalPrice !== null) || (shippingFee !== null)) {
           await fetch(`/api/admin/products/${created.id}`, {
             method: "PATCH",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ colors, productType, originalPrice }),
+            body: JSON.stringify({ colors, productType, originalPrice, shippingFee }),
           });
         }
         ok++;

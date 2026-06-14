@@ -90,9 +90,16 @@ export default function Checkout() {
   const fmt = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: cart.currency }).format(n);
 
+  const totalShipping = cart.items.reduce((sum, item) => {
+    const fee = (item.product as { shippingFee?: number | null }).shippingFee ?? 0;
+    return sum + fee * item.quantity;
+  }, 0);
+
   const discountedSubtotal = cashback
     ? Math.max(0, cart.subtotal - cashback.amount)
     : cart.subtotal;
+
+  const grandTotal = discountedSubtotal + totalShipping;
 
   const canContinue =
     shippingAddress.trim().length >= 3 &&
@@ -228,13 +235,15 @@ export default function Checkout() {
                 <span>-{fmt(cashback.amount)}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Shipping</span>
-              <span>Free</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Shipping</span>
+              {totalShipping > 0
+                ? <span className="text-red-500 font-medium">{fmt(totalShipping)}</span>
+                : <span className="text-emerald-600 font-medium">Free</span>}
             </div>
             <div className="flex justify-between font-bold text-lg pt-2 border-t border-border/30">
               <span>Total</span>
-              <span>{fmt(discountedSubtotal)}</span>
+              <span>{fmt(grandTotal)}</span>
             </div>
           </div>
         </Card>

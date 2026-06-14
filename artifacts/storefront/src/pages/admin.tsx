@@ -71,7 +71,6 @@ export default function Admin({ section = "dashboard" }: { section?: Section }) 
           />
           <AdminDashboard />
           <div className="grid gap-8 lg:grid-cols-2">
-            <UsersManager currentUserId={me.id} />
             <ProductForm sellerName={me.name} />
           </div>
           <OrdersManager />

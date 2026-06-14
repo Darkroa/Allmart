@@ -6,7 +6,7 @@ import {
   type Order,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { Package, Clock, Truck, CheckCircle2, XCircle, RefreshCcw, ImageIcon, ShieldCheck, ShieldX, Eye, EyeOff, Download, Upload } from "lucide-react";
+import { Package, Clock, Truck, CheckCircle2, XCircle, RefreshCcw, ImageIcon, ShieldCheck, ShieldX, Eye, EyeOff, Download, Upload, ChevronDown, ChevronUp, User, MapPin, Phone, Mail, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useRef } from "react";
 
@@ -53,7 +53,11 @@ const payVerifiedLabel: Record<PaymentVerified, string> = {
 
 type ExtendedOrder = Order & {
   receiverName?: string;
+  receiverEmail?: string;
+  receiverPhone?: string;
+  shippingFee?: number | null;
   cashbackDiscount?: number;
+  cashbackCode?: string;
   paymentScreenshotUrl?: string;
   paymentNote?: string;
   paymentVerified?: string;
@@ -65,6 +69,7 @@ export function OrdersManager() {
   const { data: orders, isLoading } = useListAllOrders();
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [expandedScreenshot, setExpandedScreenshot] = useState<number | null>(null);
+  const [expandedDetails, setExpandedDetails] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -280,6 +285,92 @@ export function OrdersManager() {
                     </div>
                   ))}
                 </div>
+
+                {/* Full checkout details toggle */}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs px-2 gap-1 text-muted-foreground hover:text-foreground -ml-1 mb-1"
+                  onClick={() => setExpandedDetails(expandedDetails === order.id ? null : order.id)}
+                >
+                  {expandedDetails === order.id
+                    ? <><ChevronUp className="h-3.5 w-3.5" /> Hide details</>
+                    : <><ChevronDown className="h-3.5 w-3.5" /> Full checkout details</>}
+                </Button>
+
+                {expandedDetails === order.id && (
+                  <div className="mt-2 rounded-xl border border-border/40 bg-muted/10 p-4 space-y-4 text-sm">
+                    {/* Receiver info */}
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                        <User className="h-3.5 w-3.5" /> Receiver
+                      </p>
+                      <div className="grid gap-1 text-xs">
+                        {ext.receiverName && <div className="flex gap-2"><span className="text-muted-foreground w-28 shrink-0">Name</span><span className="font-medium">{ext.receiverName}</span></div>}
+                        {ext.receiverEmail && <div className="flex gap-2"><Mail className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" /><span className="text-muted-foreground w-24 shrink-0">Email</span><span>{ext.receiverEmail}</span></div>}
+                        {ext.receiverPhone && <div className="flex gap-2"><Phone className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" /><span className="text-muted-foreground w-24 shrink-0">Phone</span><span>{ext.receiverPhone}</span></div>}
+                        <div className="flex gap-2"><MapPin className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" /><span className="text-muted-foreground w-24 shrink-0">Address</span><span>{order.shippingAddress}</span></div>
+                      </div>
+                    </div>
+
+                    {/* Items table */}
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Items</p>
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-border/30">
+                            <th className="text-left pb-1 font-medium text-muted-foreground">Product</th>
+                            <th className="text-center pb-1 font-medium text-muted-foreground w-12">Qty</th>
+                            <th className="text-right pb-1 font-medium text-muted-foreground w-20">Unit price</th>
+                            <th className="text-right pb-1 font-medium text-muted-foreground w-20">Line total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {order.items.map((item) => (
+                            <tr key={item.productId} className="border-b border-border/20 last:border-0">
+                              <td className="py-1.5 flex items-center gap-2">
+                                <img src={item.imageUrl} alt="" className="h-7 w-7 rounded object-cover border border-border/30" />
+                                <span>{item.productName}</span>
+                              </td>
+                              <td className="py-1.5 text-center">{item.quantity}</td>
+                              <td className="py-1.5 text-right">{fmt(item.price)}</td>
+                              <td className="py-1.5 text-right font-medium">{fmt(item.price * item.quantity)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Price breakdown */}
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                        <DollarSign className="h-3.5 w-3.5" /> Price breakdown
+                      </p>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Subtotal</span>
+                          <span>{fmt(order.items.reduce((s, i) => s + i.price * i.quantity, 0))}</span>
+                        </div>
+                        {ext.shippingFee != null && ext.shippingFee > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Shipping fee</span>
+                            <span className="text-red-500">{fmt(ext.shippingFee)}</span>
+                          </div>
+                        )}
+                        {ext.cashbackDiscount != null && ext.cashbackDiscount > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Cashback {ext.cashbackCode ? `(${ext.cashbackCode})` : ""}</span>
+                            <span className="text-primary">-{fmt(ext.cashbackDiscount)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-semibold pt-1 border-t border-border/30">
+                          <span>Total paid</span>
+                          <span>{fmt(order.total)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Payment screenshot section */}
                 {hasScreenshot && (

@@ -35,6 +35,7 @@ export function ProductForm({ sellerName }: { sellerName: string }) {
   const [colors, setColors] = useState("");
   const [productType, setProductType] = useState("");
   const [tags, setTags] = useState("");
+  const [shippingFee, setShippingFee] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -110,11 +111,12 @@ export function ProductForm({ sellerName }: { sellerName: string }) {
           productType: productType.trim(),
           rating: ratingNum,
           originalPrice: originalPriceNum,
+          shippingFee: shippingFee ? Number(shippingFee) : null,
         }),
       });
       setSuccess(`Published "${created.name}".`);
       setName(""); setDescription(""); setPrice(""); setOriginalPrice(""); setRating("4.5");
-      setImageUrl(""); setExtraImages([]); setColors(""); setProductType(""); setTags("");
+      setImageUrl(""); setExtraImages([]); setColors(""); setProductType(""); setTags(""); setShippingFee("");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getListCategoriesQueryKey() }),
@@ -246,9 +248,18 @@ export function ProductForm({ sellerName }: { sellerName: string }) {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="p-tags">Tags <span className="text-muted-foreground font-normal">(comma separated)</span></Label>
-        <Input id="p-tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="lightweight, breathable, unisex" />
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="p-tags">Tags <span className="text-muted-foreground font-normal">(comma separated)</span></Label>
+          <Input id="p-tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="lightweight, breathable, unisex" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="p-shipping">Shipping fee ($) <span className="text-muted-foreground font-normal">(optional)</span></Label>
+          <Input id="p-shipping" type="number" min="0" step="0.01" value={shippingFee}
+            onChange={(e) => setShippingFee(e.target.value)}
+            placeholder="e.g. 5.99 — leave blank for free" />
+          <p className="text-xs text-muted-foreground">Leave blank or 0 for free shipping. Add a note like "Free within USA" in tags.</p>
+        </div>
       </div>
 
       {error && (

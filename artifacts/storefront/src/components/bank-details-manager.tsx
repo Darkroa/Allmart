@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save, Upload, X, AlertTriangle } from "lucide-react";
 import { useImageUpload } from "@/hooks/use-image-upload";
 
-type BankDetails = { bankName: string; accountName: string; accountNumber: string; routingNumber?: string; bankLogo?: string };
+type BankDetails = { bankName: string; accountName: string; accountNumber: string; routingNumber?: string; bankLogo?: string; email?: string };
 
 export function BankDetailsManager() {
   const { toast } = useToast();
@@ -166,6 +166,11 @@ export function BankDetailsManager() {
             <Label htmlFor="routingNumber">Routing number <span className="text-muted-foreground font-normal">(optional)</span></Label>
             <Input id="routingNumber" placeholder="e.g. 021000021" value={form.routingNumber ?? ""}
               onChange={(e) => handleChange("routingNumber", e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="bankEmail">Contact email <span className="text-muted-foreground font-normal">(optional, shown to customers)</span></Label>
+            <Input id="bankEmail" type="email" placeholder="e.g. payments@allmart.com" value={form.email ?? ""}
+              onChange={(e) => handleChange("email", e.target.value)} />
           </div>
         </div>
 

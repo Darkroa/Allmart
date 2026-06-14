@@ -31,12 +31,13 @@ router.get("/settings/bank", async (_req: Request, res: Response) => {
 });
 
 router.put("/settings/bank", requireRole("admin"), async (req: Request, res: Response) => {
-  const { bankName, accountName, accountNumber, routingNumber, bankLogo } = req.body as {
+  const { bankName, accountName, accountNumber, routingNumber, bankLogo, email } = req.body as {
     bankName: string;
     accountName: string;
     accountNumber: string;
     routingNumber?: string;
     bankLogo?: string;
+    email?: string;
   };
 
   if (!bankName || !accountName || !accountNumber) {
@@ -44,7 +45,7 @@ router.put("/settings/bank", requireRole("admin"), async (req: Request, res: Res
     return;
   }
 
-  const payload = { bankName, accountName, accountNumber, routingNumber: routingNumber ?? "", bankLogo: bankLogo ?? "" };
+  const payload = { bankName, accountName, accountNumber, routingNumber: routingNumber ?? "", bankLogo: bankLogo ?? "", email: email ?? "" };
   const value = JSON.stringify(payload);
 
   await db
