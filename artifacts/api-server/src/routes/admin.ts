@@ -8,8 +8,8 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
-function publicUser(u: { id: number; email: string; name: string; role: string }) {
-  return { id: u.id, email: u.email, name: u.name, role: u.role };
+function publicUser(u: { id: number; email: string; name: string; role: string; tier: number }) {
+  return { id: u.id, email: u.email, name: u.name, role: u.role, tier: u.tier };
 }
 
 router.get("/admin/users", requireRole("admin"), async (_req: Request, res: Response) => {
