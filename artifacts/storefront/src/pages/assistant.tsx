@@ -115,8 +115,8 @@ export default function Assistant() {
   };
 
   const handleConfirmOrder = (messageId: number) => {
-    const turn = turnStates[messageId];
-    if (turn?.needsShippingAddress && (!shippingAddress || shippingAddress.trim().length < 3)) {
+    // Always require a shipping address — collected upfront in the confirm card
+    if (!shippingAddress || shippingAddress.trim().length < 3) {
       toast({ title: "Address required", description: "Please enter a valid shipping address.", variant: "destructive" });
       return;
     }
@@ -129,7 +129,7 @@ export default function Assistant() {
       data: { 
         content: `Yes, please place the order. Payment method: ${paymentLabel}.`, 
         confirmOrder: true, 
-        shippingAddress: turn?.needsShippingAddress ? shippingAddress : undefined,
+        shippingAddress: shippingAddress.trim(),
         paymentMethod: selectedPaymentMethod,
       } 
     });
@@ -251,17 +251,15 @@ export default function Assistant() {
                         <Package className="h-4 w-4" /> Confirm your order
                       </h4>
 
-                      {turnState.needsShippingAddress && (
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Shipping Address</label>
-                          <Textarea
-                            value={shippingAddress}
-                            onChange={(e) => setShippingAddress(e.target.value)}
-                            placeholder="Enter your full shipping address..."
-                            className="resize-none h-20 bg-background"
-                          />
-                        </div>
-                      )}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Shipping Address</label>
+                        <Textarea
+                          value={shippingAddress}
+                          onChange={(e) => setShippingAddress(e.target.value)}
+                          placeholder="Enter your full delivery address..."
+                          className="resize-none h-20 bg-background"
+                        />
+                      </div>
 
                       {/* Payment method picker */}
                       <div className="space-y-2">

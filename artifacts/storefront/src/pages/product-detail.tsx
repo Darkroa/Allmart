@@ -70,7 +70,7 @@ export default function ProductDetail() {
   }
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+    new Intl.NumberFormat("en-US", { style: "currency", currency: product.currency || "USD" }).format(n);
 
   const isOutOfStock = product.stock <= 0;
   const hasDiscount = product.originalPrice != null && (product.originalPrice as number) > product.price;

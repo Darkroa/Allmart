@@ -53,7 +53,7 @@ function ShareDropdown({ product }: { product: Product }) {
 
 export function ProductCard({ product }: { product: Product }) {
   const [shareOpen, setShareOpen] = useState(false);
-  const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+  const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: product.currency || "USD" });
   const hasDiscount = product.originalPrice != null && (product.originalPrice as number) > product.price;
   const discountPct = hasDiscount
     ? Math.round((1 - product.price / (product.originalPrice as number)) * 100)
