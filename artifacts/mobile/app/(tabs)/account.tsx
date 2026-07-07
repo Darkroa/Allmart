@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   StatusBar,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +30,7 @@ const CARD_BG = '#FAF9FF';
 const WHITE = '#FFFFFF';
 const TEXT_DARK = '#2D2248';
 const TEXT_MUTED = '#9B93B8';
-const ROSE_GOLD = '#C9956A';
+const ALLMART_ORANGE = '#E8621A';
 const HEART_PINK = '#F08080';
 
 function formatPrice(amount: number, currency: string) {
@@ -37,16 +38,20 @@ function formatPrice(amount: number, currency: string) {
   return `${currency} ${amount.toLocaleString()}`;
 }
 
-// Shopping bag logo SVG-like component using RN primitives
+// Shopping bag logo using the real AllMart icon
 function BagLogo() {
   return (
     <View style={logo.container}>
-      {/* Handle */}
+      {/* Bag handles */}
       <View style={logo.handleLeft} />
       <View style={logo.handleRight} />
-      {/* Bag body */}
+      {/* Bag body with real logo */}
       <View style={logo.bag}>
-        <Text style={logo.letter}>A</Text>
+        <Image
+          source={require('@/assets/images/icon.png')}
+          style={logo.icon}
+          resizeMode="cover"
+        />
       </View>
     </View>
   );
@@ -54,8 +59,8 @@ function BagLogo() {
 
 const logo = StyleSheet.create({
   container: {
-    width: 100,
-    height: 110,
+    width: 104,
+    height: 114,
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
@@ -70,7 +75,7 @@ const logo = StyleSheet.create({
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     borderWidth: 4,
-    borderColor: ROSE_GOLD,
+    borderColor: ALLMART_ORANGE,
     borderBottomWidth: 0,
     borderRightWidth: 0,
     backgroundColor: 'transparent',
@@ -86,29 +91,25 @@ const logo = StyleSheet.create({
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     borderWidth: 4,
-    borderColor: ROSE_GOLD,
+    borderColor: ALLMART_ORANGE,
     borderBottomWidth: 0,
     borderLeftWidth: 0,
     backgroundColor: 'transparent',
   },
   bag: {
-    width: 88,
-    height: 86,
-    borderRadius: 18,
-    backgroundColor: ROSE_GOLD,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#8B5E3C',
+    width: 90,
+    height: 90,
+    borderRadius: 22,
+    overflow: 'hidden',
+    shadowColor: ALLMART_ORANGE,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.35,
-    shadowRadius: 12,
+    shadowRadius: 14,
     elevation: 10,
   },
-  letter: {
-    fontSize: 40,
-    fontFamily: 'Inter_700Bold',
-    color: WHITE,
-    letterSpacing: -1,
+  icon: {
+    width: 90,
+    height: 90,
   },
 });
 
