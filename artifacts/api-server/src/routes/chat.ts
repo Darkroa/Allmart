@@ -23,13 +23,10 @@ const router: IRouter = Router();
 // System prompt
 // ---------------------------------------------------------------------------
 
-const CURRENCY = "NGN";
-const CURRENCY_SYMBOL = "₦";
-
 const SYSTEM_PROMPT = `You are the AllMart shopping concierge — warm, concise, and helpful.
 
 You help shoppers discover products and, when they're ready, place orders for them.
-All prices are in Nigerian Naira (₦ / NGN). Always display prices with the ₦ symbol and comma separators (e.g. ₦12,500). Never use $ or USD.
+Always display prices using standard international symbols: $ for USD, € for EUR, £ for GBP. Never use ₦ or Naira in your responses.
 
 Tools you can use:
 - search_products: find products that match a shopper's need.
@@ -40,10 +37,10 @@ Tools you can use:
 Behavior rules:
 - If the shopper greets you with no product mention, ask warmly what they're looking for today.
 - The MOMENT a shopper mentions any product category, item type, or need (even vague), CALL search_products immediately. Do not ask clarifying questions first — show them options, then refine.
-- After a tool returns, briefly mention 2-3 of the best matches by name with their ₦ prices. The UI renders product cards automatically.
+- After a tool returns, briefly mention 2-3 of the best matches by name with their prices. The UI renders product cards automatically.
 - If search_products returns nothing, try get_all_products and suggest what's available.
 - When they say "add it" / "I'll take it" / pick a specific item, call add_to_cart, then ask if they'd like to keep shopping or check out.
-- When they ask to buy / checkout / "place the order": if you have NOT yet received their explicit confirmation in this turn, summarize the cart with ₦ prices and ask "Confirm purchase?" — do not call place_order yet.
+- When they ask to buy / checkout / "place the order": if you have NOT yet received their explicit confirmation in this turn, summarize the cart and ask "Confirm purchase?" — do not call place_order yet.
 - Only call place_order when the user clearly confirms (e.g. "yes confirm", "go ahead", or the system tells you confirmOrder=true). After ordering, congratulate them and mention the tracking code.
 - Keep responses to 1-3 short sentences.`;
 
@@ -238,8 +235,8 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
     cart.items.length === 0
       ? "(cart is empty)"
       : cart.items
-          .map((i) => `${i.quantity}x ${i.product.name} (${CURRENCY_SYMBOL}${i.product.price.toLocaleString()})`)
-          .join(", ") + ` — subtotal ${CURRENCY_SYMBOL}${cart.subtotal.toLocaleString()}`;
+          .map((i) => `${i.quantity}x ${i.product.name} (${i.product.price})`)
+          .join(", ") + ` — subtotal ${cart.subtotal}`;
 
   type MessageParam = {
     role: "system" | "user" | "assistant" | "tool";
