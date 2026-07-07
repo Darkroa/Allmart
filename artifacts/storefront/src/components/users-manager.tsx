@@ -18,7 +18,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Trash2, UserCircle2, KeyRound, Copy, Shield, Pencil } from "lucide-react";
+import { Trash2, UserCircle2, KeyRound, Copy, Shield, Pencil, MailCheck, MailX } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,7 +47,7 @@ const tierColor: Record<number, string> = {
   3: "bg-emerald-50 text-emerald-700",
 };
 
-type UserWithTier = AuthUser & { tier?: number };
+type UserWithTier = AuthUser & { tier?: number; emailVerified?: boolean };
 
 export function UsersManager({ currentUserId }: { currentUserId: number }) {
   const queryClient = useQueryClient();
@@ -103,6 +103,19 @@ export function UsersManager({ currentUserId }: { currentUserId: number }) {
       toast({ title: "Failed to update tier", variant: "destructive" });
     } finally {
       setTierLoading(null);
+    }
+  }
+
+  async function verifyEmail(user: UserWithTier) {
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/verify-email`, {
+        method: "PATCH", credentials: "include",
+      });
+      if (!res.ok) throw new Error();
+      await queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
+      toast({ title: `${user.email} marked as verified` });
+    } catch {
+      toast({ title: "Failed to verify email", variant: "destructive" });
     }
   }
 
@@ -177,6 +190,17 @@ export function UsersManager({ currentUserId }: { currentUserId: number }) {
                       aria-label="Edit profile" title="Edit name / email">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
+                    {!user.emailVerified ? (
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-amber-600 hover:bg-amber-50"
+                        onClick={() => verifyEmail(user)}
+                        aria-label="Manually verify email" title="Mark email as verified">
+                        <MailCheck className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : (
+                      <span title="Email verified" className="flex h-7 w-7 items-center justify-center text-emerald-600">
+                        <MailCheck className="h-3.5 w-3.5" />
+                      </span>
+                    )}
                     <Button size="icon" variant="ghost" className="h-7 w-7 text-primary hover:bg-primary/10"
                       disabled={issuingFor === user.id} onClick={() => generateResetCode(user)}
                       aria-label="Generate password reset code" title="Generate password reset code">

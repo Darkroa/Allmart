@@ -12,6 +12,9 @@ export const usersTable = pgTable("users", {
   sex: text("sex"),
   address: text("address"),
   profileComplete: boolean("profile_complete").notNull().default(false),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerificationCode: text("email_verification_code"),
+  emailVerificationExpiry: timestamp("email_verification_expiry", { withTimezone: true }),
   referralCode: text("referral_code").unique(),
   bonusBalance: real("bonus_balance").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })

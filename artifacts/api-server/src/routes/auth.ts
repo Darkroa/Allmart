@@ -52,6 +52,7 @@ function publicUser(u: typeof usersTable.$inferSelect) {
     sex: u.sex ?? null,
     address: u.address ?? null,
     profileComplete: u.profileComplete,
+    emailVerified: u.emailVerified,
     referralCode: u.referralCode ?? null,
     bonusBalance: u.bonusBalance,
   };

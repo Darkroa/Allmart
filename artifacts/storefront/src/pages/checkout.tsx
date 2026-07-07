@@ -22,7 +22,7 @@ export default function Checkout() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { data: cart, isLoading } = useGetCart();
-  const { data: meData } = useGetCurrentUser();
+  const { data: meData, isLoading: isUserLoading } = useGetCurrentUser();
   const me = meData?.user ?? null;
 
   const [shippingAddress, setShippingAddress] = useState(
@@ -48,6 +48,20 @@ export default function Checkout() {
   useEffect(() => {
     if (!isLoading && cart && cart.items.length === 0) setLocation("/cart");
   }, [isLoading, cart, setLocation]);
+
+  // Guests must sign in; signed-in users must verify email before checkout
+  useEffect(() => {
+    if (isLoading || isUserLoading) return;
+    const u = meData?.user as ({ emailVerified?: boolean } & typeof meData.user) | null | undefined;
+    if (!u) {
+      toast({ title: "Sign in required", description: "Please sign in to continue.", variant: "destructive" });
+      setLocation("/account");
+    } else if (!u.emailVerified) {
+      toast({ title: "Verify your email", description: "Please verify your email before checking out.", variant: "destructive" });
+      setLocation("/verify-email");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, meData]);
 
   async function validateCashback() {
     if (!cashbackInput.trim()) return;

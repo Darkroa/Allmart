@@ -21,6 +21,7 @@ import Account from "@/pages/account";
 import Admin from "@/pages/admin";
 import PMConsole from "@/pages/pm";
 import ResetPassword from "@/pages/reset-password";
+import VerifyEmail from "@/pages/verify-email";
 import Notifications from "@/pages/notifications";
 import Support from "@/pages/support";
 import PaymentCallback from "@/pages/payment-callback";
@@ -97,6 +98,7 @@ function Router() {
         <Route path="/pm/orders" component={() => <PMConsole section="orders" />} />
         <Route path="/pm/catalog" component={() => <PMConsole section="catalog" />} />
         <Route path="/reset-password" component={ResetPassword} />
+        <Route path="/verify-email" component={VerifyEmail} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

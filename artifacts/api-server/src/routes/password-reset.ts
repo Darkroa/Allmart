@@ -5,6 +5,9 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { RedeemResetCodeBody } from "@workspace/api-zod";
 import { requireRole } from "../lib/auth";
+import { sendEmail } from "./email";
+import { logger } from "../lib/logger";
+import { passwordResetRequestLimiter } from "../lib/rate-limit";
 
 const router: IRouter = Router();
 
@@ -72,6 +75,50 @@ router.post(
     });
   },
 );
+
+/** Self-service forgot-password: find account and email a reset code. */
+router.post("/auth/request-reset", async (req: Request, res: Response) => {
+  const { email } = req.body as { email?: string };
+  if (!email) { res.status(400).json({ error: "Email required" }); return; }
+  const normalized = email.trim().toLowerCase();
+
+  // Rate limit: 3 requests per email per 15 minutes
+  if (!passwordResetRequestLimiter.allow(normalized)) {
+    // Still return ok to avoid enumeration; just don't send
+    res.json({ ok: true });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, normalized));
+
+  // Always respond OK to avoid email enumeration
+  if (!user) { res.json({ ok: true }); return; }
+
+  const scope: "user" | "admin" = user.role === "admin" ? "admin" : "user";
+  const { code, expiresAt } = await issueCode(user.id, scope);
+
+  const resetLink = `${process.env.APP_URL ?? ""}/reset-password?email=${encodeURIComponent(user.email)}&code=${encodeURIComponent(code)}`;
+
+  sendEmail({
+    to: user.email,
+    subject: "Reset your AllMart password",
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+        <h2 style="color:#e07b39;margin-bottom:8px">Password reset request</h2>
+        <p>Hi <strong>${user.name}</strong>, we received a request to reset your AllMart password.</p>
+        <div style="margin:24px 0;padding:20px;background:#f9f5f1;border-radius:12px;text-align:center">
+          <p style="font-size:28px;font-weight:700;letter-spacing:6px;color:#e07b39;margin:0 0 8px">${code}</p>
+          <p style="font-size:12px;color:#888;margin:0">Expires ${expiresAt.toLocaleTimeString()} (30 minutes)</p>
+        </div>
+        <a href="${resetLink}" style="display:inline-block;background:#e07b39;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-bottom:16px">
+          Reset password →
+        </a>
+        <p style="color:#888;font-size:12px">If you didn't request this, you can safely ignore this email.</p>
+      </div>`,
+  }).catch((err) => { logger.error({ err, to: user.email }, "Password reset email failed"); });
+
+  res.json({ ok: true });
+});
 
 router.post("/auth/redeem-reset-code", async (req: Request, res: Response) => {
   const parsed = RedeemResetCodeBody.safeParse(req.body);

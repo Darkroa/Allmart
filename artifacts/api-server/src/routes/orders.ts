@@ -179,6 +179,14 @@ router.post("/orders", async (req: Request, res: Response) => {
     return;
   }
   const user = await getUserFromCookie(req);
+  if (!user) {
+    res.status(401).json({ error: "Sign in required to place an order" });
+    return;
+  }
+  if (!user.emailVerified) {
+    res.status(403).json({ error: "Please verify your email before placing an order" });
+    return;
+  }
   const placedBy = (parsed.data.placedBy as "user" | "ai" | undefined) ?? "user";
   const body = req.body as {
     receiverName?: string;

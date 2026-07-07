@@ -18,4 +18,17 @@ router.patch("/admin/users/:id/tier", requireRole("admin"), async (req: Request,
   res.json({ id: updated.id, tier: updated.tier });
 });
 
+/** Manually verify a user's email address from the admin panel. */
+router.patch("/admin/users/:id/verify-email", requireRole("admin"), async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [updated] = await db
+    .update(usersTable)
+    .set({ emailVerified: true, emailVerificationCode: null, emailVerificationExpiry: null })
+    .where(eq(usersTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ id: updated.id, emailVerified: updated.emailVerified });
+});
+
 export default router;
