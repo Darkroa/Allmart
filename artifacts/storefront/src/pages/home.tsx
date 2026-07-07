@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import {
   ArrowRight, Search, Sparkles, ChevronDown, ChevronUp,
   Store, Package, Bell, ShoppingBag, LogOut, Lock, Users, UserCog, LifeBuoy, UserCircle2, Menu,
+  LayoutGrid, Zap, Truck, Tag, Bot,
 } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -211,24 +212,15 @@ export default function Home() {
     <div className="flex flex-col min-h-[100dvh]">
 
       {/* ── Mobile-style purple header ── */}
-      <section className="bg-primary px-4 pb-6 pt-safe">
+      <section className="bg-primary px-4 pb-5 pt-safe">
         {/* Top action bar */}
-        <div className="flex items-center gap-2 pt-3 pb-4">
+        <div className="flex items-center gap-2 pt-3 pb-3">
           {/* Left: shop drawer */}
           <ShopDrawerInner />
 
-          {/* Center: greeting + title */}
-          <div className="flex-1 px-2">
-            <p className="text-xs text-white/70 font-medium">
-              {greeting()}{me ? `, ${me.name.split(" ")[0]}` : ""} 👋
-            </p>
-            <p className="text-sm font-bold text-white leading-tight">Find your perfect product</p>
-          </div>
-
-          {/* Right: theme toggle, notifications, cart */}
-          <div className="flex items-center gap-1.5">
+          {/* Right: theme toggle, notifications, user, cart */}
+          <div className="flex items-center gap-1.5 ml-auto">
             <ThemeToggle variant="home" />
-
             {me ? (
               <>
                 <NotificationsBell enabled={true} variant="home" />
@@ -272,7 +264,6 @@ export default function Home() {
                 </button>
               </Link>
             )}
-
             <Link href="/cart">
               <button className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
                 <ShoppingBag className="h-5 w-5 text-white" />
@@ -284,6 +275,16 @@ export default function Home() {
               </button>
             </Link>
           </div>
+        </div>
+
+        {/* Greeting + big title */}
+        <div className="pb-4">
+          <p className="text-sm text-white/70 font-medium mb-1">
+            {greeting()}{me ? `, ${me.name.split(" ")[0]}` : ""} 👋
+          </p>
+          <h1 className="text-3xl font-extrabold text-white leading-tight tracking-tight">
+            Find your perfect<br />product
+          </h1>
         </div>
 
         {/* Search bar */}
@@ -299,30 +300,69 @@ export default function Home() {
             />
             {query && (
               <button type="submit" className="shrink-0 flex h-7 items-center gap-1 rounded-full bg-white/20 px-3 text-xs font-semibold text-white hover:bg-white/30 transition-colors">
-                Ask AI
+                <Sparkles className="h-3 w-3" /> Ask AI
               </button>
             )}
           </div>
         </form>
+      </section>
 
-        {/* Trending */}
-        {summary?.trendingSearches && summary.trendingSearches.length > 0 && (
-          <TrendingSlider
-            terms={summary.trendingSearches}
-            onSelect={(term) => {
-              sessionStorage.setItem("initial_assistant_query", `I'm looking for ${term}`);
-              setLocation("/assistant");
-            }}
-          />
-        )}
+      {/* ── White card section (promo + quick nav) ── */}
+      <section className="bg-background">
+        <div className="max-w-screen-xl mx-auto px-4 pt-4 pb-2 space-y-4">
+
+          {/* Promo banner */}
+          <div className="relative overflow-hidden rounded-2xl bg-primary px-6 py-5 flex items-center justify-between shadow-lg shadow-primary/20">
+            {/* glow blob */}
+            <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+            <div className="relative z-10 space-y-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                🔥 Limited Time
+              </span>
+              <p className="text-2xl font-extrabold text-white leading-tight">Mega Sale</p>
+              <p className="text-sm text-white/80">Up to 60% Off</p>
+              <Link href="/products?sort=sale">
+                <button className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-primary hover:bg-white/90 transition-colors">
+                  Shop Now <ArrowRight className="h-3 w-3" />
+                </button>
+              </Link>
+            </div>
+            <div className="relative z-10 text-5xl select-none pr-2">🛍️</div>
+          </div>
+
+          {/* Quick-nav icon row */}
+          <div className="rounded-2xl bg-card border border-border/40 shadow-sm px-4 py-4">
+            <div className="grid grid-cols-5 gap-2">
+              {[
+                { href: "/products", icon: LayoutGrid, label: "Categories" },
+                { href: "/products?sort=sale", icon: Zap, label: "Flash Sale" },
+                { href: "/products?sort=new", icon: Truck, label: "Free Shipping" },
+                { href: "/products?sort=featured", icon: Tag, label: "Vouchers" },
+                { href: "/assistant", icon: Bot, label: "Ask AI" },
+              ].map(({ href, icon: Icon, label }) => (
+                <Link key={href} href={href}>
+                  <button className="flex flex-col items-center gap-1.5 w-full group">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </span>
+                    <span className="text-[10px] text-center font-medium text-muted-foreground leading-tight">
+                      {label}
+                    </span>
+                  </button>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </section>
 
       {/* Featured Carousel */}
-      <section className="py-8 container max-w-screen-xl mx-auto px-6">
-        <div className="flex items-end justify-between mb-5">
+      <section className="py-6 container max-w-screen-xl mx-auto px-4">
+        <div className="flex items-end justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-serif font-bold tracking-tight">Featured</h2>
-            <p className="text-muted-foreground mt-0.5 text-sm">Handpicked products.</p>
+            <h2 className="text-lg font-bold tracking-tight">Featured</h2>
+            <p className="text-muted-foreground mt-0.5 text-xs">Handpicked products.</p>
           </div>
           <Link href="/products">
             <Button variant="ghost" size="sm" className="gap-1 group text-xs">
