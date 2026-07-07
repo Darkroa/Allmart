@@ -32,31 +32,35 @@ async function seedUsers() {
   ];
 
   for (const u of users) {
+    const passwordHash = await bcrypt.hash(u.password, 10);
+
     const [existing] = await db
-      .select({ id: usersTable.id })
+      .select({ id: usersTable.id, role: usersTable.role })
       .from(usersTable)
       .where(eq(usersTable.email, u.email));
 
     if (existing) {
-      console.log(`  ✓ ${u.email} already exists — skipping.`);
-      continue;
+      await db
+        .update(usersTable)
+        .set({ name: u.name, role: u.role, passwordHash, profileComplete: true })
+        .where(eq(usersTable.email, u.email));
+      console.log(`  ✓ Updated ${u.email} → role=${u.role}`);
+    } else {
+      await db.insert(usersTable).values({
+        email: u.email,
+        name: u.name,
+        passwordHash,
+        role: u.role,
+        profileComplete: true,
+      });
+      console.log(`  ✓ Created ${u.role}: ${u.email}`);
     }
-
-    const passwordHash = await bcrypt.hash(u.password, 10);
-    await db.insert(usersTable).values({
-      email: u.email,
-      name: u.name,
-      passwordHash,
-      role: u.role,
-      profileComplete: true,
-    });
-    console.log(`  ✓ Created ${u.role}: ${u.email}`);
   }
 }
 
 async function seedSettings() {
   const defaults = [
-    { key: "referralSignupBonus",  value: "20" },
+    { key: "referralSignupBonus", value: "20" },
     { key: "referralReferrerBonus", value: "10" },
     {
       key: "referralNote",
