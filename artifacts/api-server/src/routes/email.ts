@@ -26,7 +26,28 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
   const { to, subject, html, from = FROM } = payload;
   const toArr = Array.isArray(to) ? to : [to];
 
-  // --- Resend ---
+  // --- SMTP (primary) — fall through to Resend on failure ---
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
+    try {
+      const smtpPort = Number(process.env.SMTP_PORT ?? "587");
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASSWORD,
+        },
+      });
+      await transporter.sendMail({ from, to: toArr.join(", "), subject, html });
+      logger.info({ to: toArr, subject, host: process.env.SMTP_HOST }, "Email sent via SMTP");
+      return;
+    } catch (smtpErr) {
+      logger.warn({ err: smtpErr, to: toArr, subject }, "SMTP send failed — falling back to Resend");
+    }
+  }
+
+  // --- Resend fallback ---
   if (process.env.RESEND_API_KEY) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { error } = await resend.emails.send({ from, to: toArr, subject, html });
@@ -35,27 +56,10 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
     return;
   }
 
-  // --- SMTP fallback ---
-  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
-    const smtpPort = Number(process.env.SMTP_PORT ?? "587");
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: smtpPort,
-      secure: smtpPort === 465,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      },
-    });
-    await transporter.sendMail({ from, to: toArr.join(", "), subject, html });
-    logger.info({ to: toArr, subject, host: process.env.SMTP_HOST }, "Email sent via SMTP");
-    return;
-  }
-
   // --- No transport configured ---
   logger.warn(
     { to: toArr, subject },
-    "Email skipped: set RESEND_API_KEY or SMTP_HOST + SMTP_USER + SMTP_PASSWORD to enable emails",
+    "Email skipped: set SMTP_HOST + SMTP_USER + SMTP_PASSWORD (or RESEND_API_KEY) to enable emails",
   );
 }
 

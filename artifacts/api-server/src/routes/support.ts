@@ -3,6 +3,7 @@ import { db, supportTicketsTable, notificationsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { requireRole, getUserFromCookie } from "../lib/auth";
 import { sendEmail } from "./email";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -26,7 +27,7 @@ router.post("/support-tickets", async (req: Request, res: Response) => {
     to: "support@allmart.com",
     subject: `[Support] ${subject}`,
     html: `<p><strong>From:</strong> ${name} &lt;${email}&gt;</p><p><strong>Message:</strong></p><p>${message.replace(/\n/g, "<br>")}</p>`,
-  }).catch(() => {});
+  }).catch((err) => { logger.error({ err }, "Support ticket forward email failed"); });
 
   res.status(201).json(ticket);
 });
@@ -86,7 +87,7 @@ router.patch(
         to: ticket.email,
         subject: `Re: ${ticket.subject}`,
         html: `<p>Hi ${ticket.name},</p><p>Here is our response to your support request:</p><blockquote>${adminReply.replace(/\n/g, "<br>")}</blockquote><p>— AllMart Support Team</p>`,
-      }).catch(() => {});
+      }).catch((err) => { logger.error({ err, to: ticket.email }, "Support reply email failed"); });
     }
 
     res.json(updated);
