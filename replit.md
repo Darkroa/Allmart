@@ -1,78 +1,179 @@
-# AllMart
+# AllMart — Project Reference
 
-AI-powered Nigerian e-commerce platform with full storefront, admin panel, AI shopping assistant, and Telegram bot integration.
+AI-powered Nigerian e-commerce platform. pnpm monorepo, Node.js 24, TypeScript.
 
-## Run & Operate
+---
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
-- `pnpm --filter @workspace/storefront run dev` — run the storefront (port 18539)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/scripts run seed-admin` — seed/reset admin user
-- `pnpm --filter @workspace/scripts run seed-products` — seed sample products
+## Quick Start (inside Replit)
+
+```
+pnpm install
+pnpm --filter @workspace/db run push      # apply DB schema
+pnpm --filter @workspace/api-server run dev   # API on port 8080
+pnpm --filter @workspace/storefront run dev   # storefront on port 18539
+```
+
+---
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5 (port 8080, base path `/api`)
-- Frontend: React + Vite + Tailwind CSS v4 + Wouter routing (port 18539)
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
-- AI: OpenAI via Replit AI Integrations
-- Auth: Custom cookie-based auth (bcryptjs)
-- Object Storage: Google Cloud Storage (Replit sidecar)
-- Email: Resend SDK or SMTP fallback (nodemailer)
-- Payments: Stripe
+| Layer | Technology |
+|---|---|
+| Monorepo | pnpm workspaces |
+| Runtime | Node.js 24, TypeScript 5.9 |
+| API | Express 5 — port 8080, base `/api` |
+| Frontend | React + Vite + Tailwind CSS v4 + Wouter |
+| Database | PostgreSQL + Drizzle ORM |
+| Validation | Zod v4, drizzle-zod |
+| API contract | OpenAPI → Orval codegen |
+| Auth | Cookie-based sessions (bcryptjs), no JWT |
+| Object Storage | Replit Object Storage (GCS sidecar) — swap to R2/S3 outside Replit |
+| Email | SMTP (primary) → Resend SDK (fallback) |
+| Payments | Stripe |
+| AI | OpenAI via Replit AI Integrations |
+| Bot | Telegram webhook bot |
 
-## Where things live
+---
 
-- `artifacts/api-server/src/routes/` — Express route handlers
-- `artifacts/storefront/src/pages/` — React pages (home, products, cart, checkout, admin, pm, etc.)
-- `lib/db/src/schema/` — Drizzle schema (users, products, orders, cart, chat, notifications, support_tickets, cashback, landing_pages, visitors)
-- `lib/api-spec/openapi.yaml` — OpenAPI contract (source of truth)
-- `lib/api-client-react/src/generated/` — generated React Query hooks
-- `lib/api-zod/src/generated/` — generated Zod schemas
-- `scripts/src/` — seed and backup scripts
+## Where Things Live
 
-## Admin Account
+```
+artifacts/
+  api-server/src/routes/   — Express route handlers
+  storefront/src/pages/    — React pages (home, products, cart, checkout, admin, …)
+  storefront/src/components/ — shared components (users-manager, cart, nav, …)
 
-- Email: `admin@allmart.com`
-- Password: `admin@allmart1234`
-- Admin panel: `/admin`
+lib/
+  db/src/schema/           — Drizzle schema (users, products, orders, cart, …)
+  api-spec/openapi.yaml    — OpenAPI contract (source of truth for all hooks/Zod)
+  api-client-react/src/generated/ — generated React Query hooks
+  api-zod/src/generated/   — generated Zod schemas
 
-## User Roles
+scripts/src/               — seed, backup, and restore scripts
+```
 
-- `buyer` — Regular customers
-- `admin` — Full admin access (users, orders, catalog, bank, notifications, support, Telegram)
-- `pm` — Product manager (orders + catalog only)
+---
 
-## Architecture decisions
+## Useful Commands
 
-- Cookie-based session auth (no JWT) — sessions stored server-side
-- NGN currency throughout
-- All API routes prefixed at `/api`
-- Vite proxy routes `/api` → `http://localhost:8080` in dev
+```bash
+pnpm run typecheck                              # full typecheck, all packages
+pnpm run build                                 # typecheck + build all packages
+pnpm --filter @workspace/api-spec run codegen  # regenerate hooks/Zod from openapi.yaml
+pnpm --filter @workspace/db run push           # push DB schema (dev/staging only)
+pnpm --filter @workspace/scripts run seed-admin    # seed/reset admin user
+pnpm --filter @workspace/scripts run seed-products # seed sample products
+pnpm --filter @workspace/scripts run backup        # dump DB to JSON
+```
+
+---
 
 ## Required Secrets
 
-- `DATABASE_URL` — Postgres connection string (auto-provisioned)
-- `SESSION_SECRET` — Cookie signing secret (auto-provisioned)
-- `RESEND_API_KEY` — For email (or use SMTP fallback below)
-- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` — SMTP fallback (e.g. Gmail: smtp.gmail.com:587)
-- `STRIPE_SECRET_KEY` / `STRIPE_PUBLIC_KEY` — Payment processing
-- `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` / `TELEGRAM_WEBHOOK_SECRET` — Telegram bot
-- `DEFAULT_OBJECT_STORAGE_BUCKET_ID` — GCS image bucket
+Set these in **Replit → Secrets** (or in `.env` outside Replit):
 
-## Gotchas
+| Secret | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres connection string |
+| `SESSION_SECRET` | Cookie signing secret (32+ random chars) |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | SMTP email (Gmail, Zoho, etc.) |
+| `RESEND_API_KEY` | Resend email fallback (optional if SMTP is set) |
+| `STRIPE_SECRET_KEY` | Stripe payments |
+| `STRIPE_PUBLIC_KEY` | Stripe frontend key |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot |
+| `TELEGRAM_CHAT_ID` | Telegram notification target |
+| `TELEGRAM_WEBHOOK_SECRET` | Telegram webhook auth |
+| `DEFAULT_OBJECT_STORAGE_BUCKET_ID` | Replit Object Storage bucket (Replit only) |
+| `PRIVATE_OBJECT_DIR` | Storage prefix for private uploads (e.g. `uploads`) |
+| `PUBLIC_OBJECT_SEARCH_PATHS` | Storage prefix for public serving (e.g. `uploads`) |
+| `APP_URL` | Public base URL for email links (e.g. `https://allmart.replit.app`) |
 
-- Always run `pnpm --filter @workspace/api-spec run codegen` after changing `openapi.yaml`
-- DB schema changes require `pnpm --filter @workspace/db run push` (dev) — production schema is synced on Publish
-- Storefront vite.config.ts requires both `PORT` and `BASE_PATH` env vars
+> **Outside Replit:** replace `DEFAULT_OBJECT_STORAGE_BUCKET_ID` with `S3_*` or `R2_*` vars — see `local.txt` § Storage.
 
-## User preferences
+---
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+## Admin Account
+
+| Field | Value |
+|---|---|
+| URL | `/admin` |
+| Email | `admin@allmart.com` |
+| Password | `admin@allmart1234` |
+
+---
+
+## User Roles
+
+| Role | Access |
+|---|---|
+| `buyer` | Regular customers |
+| `admin` | Full access (users, orders, catalog, bank, notifications, support, Telegram) |
+| `pm` | Product manager (orders + catalog only) |
+
+---
+
+## Object Storage — Replit vs Outside
+
+**Inside Replit** the app uses a Google Cloud Storage sidecar (`http://127.0.0.1:1106`). This is fully managed — just create a bucket in the Replit Object Storage tool and set the three env vars above.
+
+**Outside Replit** the sidecar is not available. Swap the client in `artifacts/api-server/src/lib/objectStorage.ts` to target any S3-compatible service. Recommended:
+
+- **Cloudflare R2** — zero egress fees, S3-compatible. See `local.txt` § Storage for the exact env var swap.
+- **AWS S3** — standard option if already on AWS.
+- **Backblaze B2** — cheap cold storage, S3-compatible.
+
+The presigned-URL flow (`POST /storage/uploads/request-url`) and the public/private serving routes (`GET /storage/public-objects/*`, `GET /storage/objects/*`) stay the same — only the underlying client changes.
+
+---
+
+## Email Flow
+
+1. Requests go through `artifacts/api-server/src/routes/email.ts`.
+2. SMTP is tried first (nodemailer). If it fails, Resend is used as fallback.
+3. Set `SMTP_*` vars for Gmail: host `smtp.gmail.com`, port `587`, user = Gmail address, password = [App Password](https://myaccount.google.com/apppasswords).
+
+---
+
+## Auth & Verification Flow
+
+- Signup → redirect to `/verify-email` — user enters 6-digit code sent by email.
+- Unverified users can browse but **cannot place orders** (blocked at API + frontend).
+- Forgot password → `/account` → "Forgot password?" → email reset code → `/reset-password`.
+- Admin can manually verify any user from `/admin/users` → ✉️ check icon.
+
+---
+
+## Architecture Decisions
+
+- Cookie-based sessions (no JWT) — sessions stored server-side.
+- NGN currency throughout.
+- All API routes prefixed at `/api`.
+- Vite dev proxy: `/api` → `http://localhost:8080`.
+- Pay on Delivery locked to Tier ≥ 3 users.
+- Rate limits on verification + reset endpoints (in-memory, single-process).
+
+---
+
+## Replit-Specific Files (not needed outside Replit)
+
+| File | Purpose |
+|---|---|
+| `.replit` | Replit IDE config: workflows, port mappings, deployment target. Ignored outside Replit. |
+| `.replitignore` | Like `.dockerignore` — excludes files from Replit's deployment image. Ignored outside Replit. |
+| `replit.nix` | NixOS package list for the Replit shell (e.g. `pkgs.nginx`). Ignored outside Replit. |
+
+---
+
+## Deployment
+
+See `local.txt` for step-by-step instructions for:
+- Local development
+- Cloudflare Pages (storefront) + Railway (API)
+- Vercel (full-stack)
+- Self-hosted VPS with nginx
+
+---
+
+## User Preferences
+
+_Add explicit user instructions to remember across sessions here._
