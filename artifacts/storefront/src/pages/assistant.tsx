@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { Send, Trash2, Bot, User, Check, X, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 type TurnState = {
   needsConfirmation?: boolean;
@@ -25,6 +25,7 @@ type TurnState = {
 export default function Assistant() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [content, setContent] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
   const [turnStates, setTurnStates] = useState<Record<number, TurnState>>({});
@@ -48,6 +49,10 @@ export default function Assistant() {
               placedOrder: data.placedOrder,
             }
           }));
+        }
+
+        if (data.placedOrder?.id) {
+          setTimeout(() => setLocation(`/orders/${data.placedOrder.id}`), 1500);
         }
       }
     }

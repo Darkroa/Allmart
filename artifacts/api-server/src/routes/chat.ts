@@ -60,7 +60,7 @@ const tools = [
         properties: {
           query: {
             type: "string",
-            description: "What the shopper is looking for (e.g. 'black running shoes', 'desk lamp under ₦50000').",
+            description: "What the shopper is looking for (e.g. 'black running shoes', 'desk lamp under $50').",
           },
           limit: {
             type: "integer",

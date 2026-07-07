@@ -107,9 +107,10 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.25rem)]">
       {/* Hero */}
-      <section className="relative px-6 py-20 md:py-28 lg:py-36 overflow-hidden bg-primary/5 border-b border-border/40">
+      <section className="relative px-6 py-20 md:py-28 lg:py-36 overflow-hidden bg-background border-b border-border/40">
+        <div className="absolute inset-0 bg-primary/5" />
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=2574&auto=format&fit=crop')] bg-cover bg-center opacity-5" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
 
         <div className="container relative z-10 max-w-4xl mx-auto text-center space-y-7">
 

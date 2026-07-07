@@ -119,7 +119,7 @@ router.post("/auth/signup", async (req: Request, res: Response) => {
       <div style="font-family:sans-serif;max-width:520px;margin:0 auto">
         <h2 style="color:#e07b39">Welcome to AllMart, ${user!.name}!</h2>
         <p>Your account has been created successfully. Start shopping thousands of products across every category.</p>
-        ${signupBonus > 0 ? `<p>🎁 You've received a <strong>₦${signupBonus} signup bonus</strong> credited to your account!</p>` : ""}
+        ${signupBonus > 0 ? `<p>🎁 You've received a <strong>$${signupBonus} signup bonus</strong> credited to your account!</p>` : ""}
         <p style="margin-top:24px;color:#888;font-size:12px">If you didn't create this account, please ignore this email.</p>
       </div>`,
   }).catch(() => {});
