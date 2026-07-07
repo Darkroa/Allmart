@@ -126,7 +126,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const cartItemCount = cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
 
-  const isHome = location === "/";
+  const isHome = location === "/" || location === "/dashboard";
   const isAssistant = location === "/assistant";
   const isAuthPage = location === "/account";
   const isStaff = me && (me.role === "admin" || me.role === "pm");

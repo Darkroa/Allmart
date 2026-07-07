@@ -1,364 +1,392 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import {
   useGetStorefrontSummary,
   useListProducts,
   useListCategories,
   useGetCurrentUser,
+  useGetCart,
+  signOut,
+  getGetCurrentUserQueryKey,
+  getGetCartQueryKey,
+  getListOrdersQueryKey,
+  getListChatMessagesQueryKey,
 } from "@workspace/api-client-react";
 import type { Product } from "@workspace/api-client-react";
 import { ProductCard } from "@/components/product-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StaffSidebarTrigger } from "@/components/staff-sidebar";
 import {
-  Search,
-  Bell,
-  ShoppingBag,
-  LayoutGrid,
-  Zap,
-  Truck,
-  Tag,
-  Sparkles,
-  ArrowRight,
-  ChevronDown,
-  ChevronUp,
+  Sheet, SheetContent, SheetTrigger, SheetClose,
+} from "@/components/ui/sheet";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Search, Sparkles, ArrowRight, Zap,
+  LayoutGrid, Truck, Tag, Menu, Store,
+  Bell, ShoppingCart, Sun, Moon,
+  UserCog, Users, Lock, LifeBuoy, LogOut, Package,
+  Watch, Mountain, Footprints, Heart, Laptop, Shirt, Dumbbell,
+  UtensilsCrossed, BookOpen, Gamepad2, HeartPulse, Plane, PawPrint,
+  Gem, Home as HomeIcon, Music2, Car,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
-// ── Design tokens (mirrors mobile) ────────────────────────────────
-const PURPLE       = "#7C3AED";
-const PURPLE_DARK  = "#5B21B6";
-const PURPLE_MID   = "#8B5CF6";
-const PURPLE_LIGHT = "#EDE9FE";
-const BG           = "#F8F7FF";
-const RED_SALE     = "#EF4444";
-const ORANGE       = "#F97316";
-const TEXT_DARK    = "#1C1028";
-const TEXT_MUTED   = "#6B7280";
-const WHITE        = "#FFFFFF";
-const CARD_BORDER  = "#F0EEFF";
-const CAT_COLORS   = [PURPLE, "#EC4899", ORANGE, "#10B981", "#3B82F6", "#F59E0B", "#6366F1", "#14B8A6"];
+// ── Category icon + colour mapping ────────────────────────────────────────────
+type LIcon = React.ElementType;
+const CAT_ICONS: Record<string, LIcon> = {
+  accessories: Watch,  outdoor: Mountain, shoes: Footprints,
+  beauty: Heart,       electronics: Laptop, fashion: Shirt,
+  clothing: Shirt,     sports: Dumbbell,  food: UtensilsCrossed,
+  books: BookOpen,     gaming: Gamepad2,  health: HeartPulse,
+  travel: Plane,       pets: PawPrint,    jewelry: Gem,
+  home: HomeIcon,      music: Music2,     automotive: Car,
+  cars: Car,           toys: Gamepad2,
+};
+const CAT_GRADIENTS = [
+  "from-pink-500 to-rose-500",    "from-orange-400 to-amber-500",
+  "from-emerald-400 to-teal-500", "from-blue-400 to-indigo-500",
+  "from-purple-500 to-violet-600","from-cyan-400 to-sky-500",
+  "from-red-400 to-orange-500",   "from-green-400 to-emerald-500",
+];
+function catIcon(slug: string): LIcon {
+  return CAT_ICONS[slug.toLowerCase().replace(/[^a-z]/g, "")] ?? LayoutGrid;
+}
 
-// ── Countdown timer ───────────────────────────────────────────────
-function CountdownTimer() {
-  const [end] = useState(() => Date.now() + 2 * 60 * 60 * 1000);
-  const [rem, setRem] = useState(end - Date.now());
+// ── Shop drawer ───────────────────────────────────────────────────────────────
+const SHOP_NAV = [
+  { href: "/products",           icon: LayoutGrid, label: "All Products" },
+  { href: "/products?sort=sale", icon: Zap,        label: "Flash Sale"   },
+  { href: "/products?sort=new",  icon: Tag,         label: "New Arrivals" },
+  { href: "/assistant",          icon: Sparkles,    label: "Ask AI"       },
+];
+function ShopDrawer() {
+  const [location] = useLocation();
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <button className="h-8 w-8 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors shrink-0">
+          <Menu className="h-4 w-4 text-white" />
+        </button>
+      </SheetTrigger>
+      <SheetContent side="left" className="w-72 p-0 flex flex-col">
+        <div className="bg-primary px-6 py-6 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">
+            <Store className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-white text-lg">Shop</p>
+            <p className="text-xs text-white/70">Browse AllMart</p>
+          </div>
+        </div>
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          {SHOP_NAV.map(({ href, icon: Icon, label }) => {
+            const active = location.startsWith(href.split("?")[0]) && href !== "/";
+            return (
+              <SheetClose asChild key={href}>
+                <Link href={href} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${active ? "bg-primary/10 text-primary font-semibold" : "text-foreground/80 hover:bg-muted"}`}>
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${active ? "bg-primary/15" : "bg-muted"}`}>
+                    <Icon className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                  </span>
+                  {label}
+                </Link>
+              </SheetClose>
+            );
+          })}
+        </nav>
+        <div className="border-t px-4 py-3">
+          <SheetClose asChild>
+            <Link href="/products">
+              <button className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary text-white py-2.5 text-sm font-semibold">
+                <Search className="h-4 w-4" /> Browse all products
+              </button>
+            </Link>
+          </SheetClose>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ── Countdown timer ───────────────────────────────────────────────────────────
+function Countdown() {
+  const end = useRef(Date.now() + 2 * 3_600_000);
+  const [left, setLeft] = useState(end.current - Date.now());
   useEffect(() => {
-    const id = setInterval(() => setRem(Math.max(0, end - Date.now())), 1000);
+    const id = setInterval(() => setLeft(Math.max(0, end.current - Date.now())), 1000);
     return () => clearInterval(id);
-  }, [end]);
-  const h = Math.floor(rem / 3_600_000);
-  const m = Math.floor((rem % 3_600_000) / 60_000);
-  const s = Math.floor((rem % 60_000) / 1_000);
-  const pad = (n: number) => String(n).padStart(2, "0");
+  }, []);
+  const fmt = (ms: number) => String(Math.floor(ms)).padStart(2, "0");
+  const h = fmt(left / 3_600_000);
+  const m = fmt((left % 3_600_000) / 60_000);
+  const s = fmt((left % 60_000) / 1_000);
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs text-gray-400 mr-1">Ends in</span>
-      {[pad(h), pad(m), pad(s)].map((u, i) => (
-        <span key={i} className="flex items-center gap-1">
-          <span
-            className="text-xs font-bold text-white rounded px-1.5 py-0.5 tabular-nums"
-            style={{ backgroundColor: PURPLE, minWidth: 26, display: "inline-block", textAlign: "center" }}
-          >
-            {u}
-          </span>
-          {i < 2 && <span className="font-bold" style={{ color: PURPLE }}>:</span>}
+      <span className="text-xs text-muted-foreground">Ends in</span>
+      {[h, m, s].map((u, i) => (
+        <span key={i} className="flex items-center gap-1.5">
+          <span className="flex h-6 min-w-[26px] items-center justify-center rounded bg-primary px-1.5 text-[11px] font-bold text-white tabular-nums">{u}</span>
+          {i < 2 && <span className="text-xs font-bold text-primary">:</span>}
         </span>
       ))}
     </div>
   );
 }
 
-// ── Flash sale card ───────────────────────────────────────────────
-function FlashCard({ product }: { product: Product }) {
-  const orig = (product as any).originalPrice ?? (product as any).compareAtPrice;
-  const pct  = orig && orig > product.price ? Math.round((1 - product.price / orig) * 100) : null;
-  const fmt  = (v: number) =>
-    product.currency === "NGN" ? `₦${v.toLocaleString()}` : `${product.currency} ${v.toLocaleString()}`;
-  const slug = product.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + product.id;
-  return (
-    <Link href={`/products/${slug}`}>
-      <div
-        className="rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg transition-all flex-shrink-0 group"
-        style={{ width: 164, backgroundColor: WHITE, border: `1px solid ${CARD_BORDER}` }}
-      >
-        <div className="relative" style={{ height: 164 }}>
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-          {pct && (
-            <span
-              className="absolute top-2 left-2 text-[11px] font-bold text-white rounded-md px-2 py-0.5"
-              style={{ backgroundColor: RED_SALE }}
-            >
-              -{pct}%
-            </span>
-          )}
-        </div>
-        <div className="p-3 space-y-1">
-          <p className="text-xs font-medium text-gray-700 line-clamp-2 leading-tight">{product.name}</p>
-          <p className="text-sm font-bold" style={{ color: PURPLE }}>{fmt(product.price)}</p>
-          {orig && <p className="text-xs text-gray-400 line-through">{fmt(orig)}</p>}
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-// ── Section header ────────────────────────────────────────────────
-function SectionHeader({ title, href, titleStyle }: { title: string; href?: string; titleStyle?: React.CSSProperties }) {
-  return (
-    <div className="flex items-center justify-between mb-5">
-      <h2 className="text-lg font-bold" style={{ color: TEXT_DARK, ...titleStyle }}>{title}</h2>
-      {href && (
-        <Link href={href}>
-          <span className="text-sm font-semibold flex items-center gap-1" style={{ color: PURPLE }}>
-            See all <ArrowRight size={13} />
-          </span>
-        </Link>
-      )}
-    </div>
-  );
-}
-
-// ── Main dashboard ────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function UserDashboard() {
   const [, setLocation] = useLocation();
-  const [catsExpanded, setCatsExpanded] = useState(false);
+  const [query, setQuery] = useState("");
+  const queryClient = useQueryClient();
 
   const { data: meData } = useGetCurrentUser();
-  const user = meData?.user ?? null;
-
-  const { data: summary } = useGetStorefrontSummary();
+  const { data: cart } = useGetCart();
   const { data: categories } = useListCategories();
   const { data: allProducts, isLoading } = useListProducts();
+  const { data: summary } = useGetStorefrontSummary();
+
+  const me = meData?.user ?? null;
+  const isStaff = me && (me.role === "admin" || me.role === "pm");
+  const cartCount = cart?.items?.reduce((s, i) => s + i.quantity, 0) ?? 0;
+  const firstName = me ? (me as any).name?.split(" ")[0] ?? "" : "";
+
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
+  const toggleDark = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("theme", next ? "dark" : "light");
+  };
 
   const greeting = () => {
     const h = new Date().getHours();
-    if (h < 12) return "Good morning";
-    if (h < 17) return "Good afternoon";
-    return "Good evening";
+    return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   };
 
-  const firstName = user ? (user as any).name?.split(" ")[0] ?? "there" : "there";
+  async function handleSignOut() {
+    await signOut();
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getListChatMessagesQueryKey() }),
+    ]);
+    setLocation("/");
+  }
 
-  // Group products by category
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (query.trim()) { sessionStorage.setItem("initial_assistant_query", query); setLocation("/assistant"); }
+  };
+
+  // Category groups
   const categoryGroups = (() => {
     if (!allProducts || !categories) return [];
     const map = new Map<string, Product[]>();
-    for (const p of allProducts) {
-      const arr = map.get(p.category) ?? [];
-      arr.push(p);
-      map.set(p.category, arr);
-    }
-    return categories
-      .filter((c) => (map.get(c.slug)?.length ?? 0) > 0)
-      .map((c) => ({ slug: c.slug, name: c.name, products: map.get(c.slug) ?? [] }));
+    for (const p of allProducts) { const arr = map.get(p.category) ?? []; arr.push(p); map.set(p.category, arr); }
+    return categories.filter(c => (map.get(c.slug)?.length ?? 0) > 0).map(c => ({ slug: c.slug, name: c.name, products: map.get(c.slug) ?? [] }));
   })();
 
-  const VISIBLE_CATS = 3;
-  const visibleGroups = catsExpanded ? categoryGroups : categoryGroups.slice(0, VISIBLE_CATS);
-  const hasMore = categoryGroups.length > VISIBLE_CATS;
+  const topCats   = summary?.topCategories ?? [];
+  const flashList = (allProducts ?? []).slice(0, 8);
 
-  const topCategories = summary?.topCategories ?? [];
-  const trending      = summary?.trendingSearches ?? [];
+  const discountPct = (p: Product) => {
+    const orig = (p as any).originalPrice ?? (p as any).compareAtPrice;
+    return orig && orig > p.price ? Math.round(100 - (p.price / orig) * 100) : 10 + (p.id % 20);
+  };
 
-  // Flash sale = products with originalPrice discount; fallback to all products
-  const flashProducts = (allProducts ?? []).filter(
-    (p) => (p as any).originalPrice && (p as any).originalPrice > p.price
-  );
-  const showFlash = flashProducts.length > 0 ? flashProducts.slice(0, 10) : (allProducts ?? []).slice(0, 8);
-
-  const QUICK_ACTIONS = [
-    { icon: <LayoutGrid size={22} color={PURPLE} />, label: "Categories", href: "/products" },
-    { icon: <Zap size={22} color={PURPLE} />, label: "Flash Sale", href: "/products" },
-    { icon: <Truck size={22} color={PURPLE} />, label: "Free Shipping", href: "/products" },
-    { icon: <Tag size={22} color={PURPLE} />, label: "Vouchers", href: "/products" },
-    { icon: <Sparkles size={22} color={PURPLE} />, label: "Ask AI", href: "/assistant" },
-  ];
+  const fmt = (p: Product) =>
+    (p.currency === "NGN" ? "₦" : p.currency) + p.price.toLocaleString();
 
   return (
-    <div style={{ backgroundColor: BG, minHeight: "100%" }}>
+    <div className="flex flex-col min-h-[100dvh] bg-background">
 
-      {/* ── Purple header ── */}
-      <div
-        style={{
-          background: `linear-gradient(135deg, ${PURPLE_DARK} 0%, ${PURPLE} 60%, ${PURPLE_MID} 100%)`,
-          paddingBottom: 48,
-        }}
-        className="px-6 pt-8"
-      >
-        <div className="max-w-screen-xl mx-auto">
-          {/* Greeting row */}
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>
-                {greeting()}, {firstName} 👋
-              </p>
-              <h1 className="text-2xl font-bold text-white mt-0.5">Find your perfect product</h1>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link href="/notifications">
-                <button
-                  className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
-                  style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
-                >
-                  <Bell size={18} color={WHITE} />
-                </button>
-              </Link>
-              <Link href="/cart">
-                <button
-                  className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
-                  style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
-                >
-                  <ShoppingBag size={18} color={WHITE} />
-                </button>
-              </Link>
-            </div>
+      {/* ── Purple header (matches mobile exactly) ── */}
+      <section className="bg-primary px-4 pb-4 pt-safe">
+        <div className="flex items-center gap-3 pt-3 pb-3">
+          <ShopDrawer />
+
+          {/* Compact greeting + title */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-white/70 font-medium leading-none mb-0.5">
+              {greeting()}{firstName ? `, ${firstName}` : ""} 👋
+            </p>
+            <p className="text-sm font-bold text-white leading-tight truncate">
+              Find your perfect product
+            </p>
           </div>
 
-          {/* Search bar */}
-          <button
-            onClick={() => setLocation("/assistant")}
-            className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left transition-all hover:brightness-105"
-            style={{
-              backgroundColor: "rgba(255,255,255,0.15)",
-              backdropFilter: "blur(8px)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              maxWidth: 800,
-            }}
-          >
-            <Search size={18} color="rgba(255,255,255,0.7)" />
-            <span className="flex-1 text-sm font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>
-              Search for products…
-            </span>
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
-            >
-              <Sparkles size={14} color={WHITE} />
-            </div>
-          </button>
-        </div>
-      </div>
+          {/* Right actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button onClick={toggleDark} className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+              {dark ? <Sun className="h-4 w-4 text-white" /> : <Moon className="h-4 w-4 text-white" />}
+            </button>
 
-      <div className="max-w-screen-xl mx-auto px-6">
-
-        {/* ── Hero banner + Quick actions card ── */}
-        <div
-          className="rounded-3xl bg-white -mt-8 mb-8 overflow-hidden"
-          style={{ boxShadow: `0 8px 40px rgba(124,58,237,0.10)`, border: `1px solid ${CARD_BORDER}` }}
-        >
-          {/* Mega Sale banner */}
-          <div
-            className="flex items-center justify-between p-6"
-            style={{ background: `linear-gradient(135deg, #4C1D95 0%, ${PURPLE} 100%)` }}
-          >
-            <div className="space-y-2">
-              <span
-                className="inline-block text-xs font-semibold rounded-full px-3 py-1"
-                style={{ backgroundColor: "rgba(255,255,255,0.15)", color: WHITE }}
-              >
-                🔥 Limited Time
-              </span>
-              <h2 className="text-3xl font-bold text-white">Mega Sale</h2>
-              <p className="text-base" style={{ color: "rgba(255,255,255,0.85)" }}>Up to 60% Off</p>
-              <button
-                onClick={() => setLocation("/products")}
-                className="flex items-center gap-2 rounded-full px-5 py-2 font-bold text-sm transition-opacity hover:opacity-90 mt-2"
-                style={{ backgroundColor: WHITE, color: PURPLE }}
-              >
-                Shop Now <ArrowRight size={14} />
-              </button>
-            </div>
-            <div className="text-7xl relative ml-6 select-none">
-              🛍️
-              <span
-                className="absolute -top-2 -right-2 w-8 h-8 rounded-full text-white font-bold text-sm flex items-center justify-center"
-                style={{ backgroundColor: ORANGE }}
-              >
-                %
-              </span>
-            </div>
-          </div>
-
-          {/* Quick actions */}
-          <div className="grid grid-cols-5 gap-1 p-5">
-            {QUICK_ACTIONS.map((a) => (
-              <Link key={a.label} href={a.href}>
-                <div className="flex flex-col items-center gap-2 cursor-pointer group py-1">
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105"
-                    style={{ backgroundColor: PURPLE_LIGHT }}
-                  >
-                    {a.icon}
-                  </div>
-                  <span className="text-xs font-medium text-center" style={{ color: TEXT_DARK }}>
-                    {a.label}
+            <Link href="/cart">
+              <button className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+                <ShoppingCart className="h-4 w-4 text-white" />
+                {cartCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-[14px] w-[14px] items-center justify-center rounded-full bg-orange-400 text-[9px] font-bold text-white">
+                    {cartCount > 9 ? "9+" : cartCount}
                   </span>
-                </div>
-              </Link>
-            ))}
+                )}
+              </button>
+            </Link>
+
+            {isStaff ? (
+              <StaffSidebarTrigger role={me!.role as "admin" | "pm"} name={me!.name} />
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+                    <Bell className="h-4 w-4 text-white" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem asChild><Link href="/profile"       className="flex items-center gap-2 cursor-pointer"><UserCog   className="h-4 w-4" /> Profile</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/orders"        className="flex items-center gap-2 cursor-pointer"><Package   className="h-4 w-4" /> My Orders</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/referral"      className="flex items-center gap-2 cursor-pointer"><Users     className="h-4 w-4" /> Referrals</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/security"      className="flex items-center gap-2 cursor-pointer"><Lock      className="h-4 w-4" /> Security</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/notifications" className="flex items-center gap-2 cursor-pointer"><Bell      className="h-4 w-4" /> Notifications</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/support"       className="flex items-center gap-2 cursor-pointer"><LifeBuoy  className="h-4 w-4" /> Support</Link></DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive gap-2 cursor-pointer">
+                    <LogOut className="h-4 w-4" /> Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
 
-        {/* ── Popular Categories ── */}
-        {topCategories.length > 0 && (
-          <section className="mb-10">
-            <SectionHeader title="Popular Categories" href="/products" />
-            <div className="flex gap-5 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
-              {topCategories.map((cat, i) => (
-                <Link key={cat.slug} href={`/products?category=${cat.slug}`}>
-                  <div className="flex flex-col items-center gap-2.5 flex-shrink-0 cursor-pointer group">
-                    <div
-                      className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold text-white transition-transform group-hover:scale-105"
-                      style={{
-                        backgroundColor: CAT_COLORS[i % CAT_COLORS.length],
-                        boxShadow: `0 4px 14px ${CAT_COLORS[i % CAT_COLORS.length]}55`,
-                      }}
-                    >
-                      {cat.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-xs font-medium whitespace-nowrap" style={{ color: TEXT_DARK }}>
-                      {cat.name}
+        {/* Search bar */}
+        <form onSubmit={handleSearch}>
+          <div className="flex items-center bg-white/15 focus-within:bg-white/20 rounded-2xl px-4 py-2.5 gap-3 border border-white/20 transition-colors">
+            <Search className="h-4 w-4 text-white/50 shrink-0" />
+            <input
+              type="text"
+              placeholder="Search for products..."
+              className="flex-1 bg-transparent text-sm text-white placeholder:text-white/50 outline-none"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
+            {query && (
+              <button type="submit" className="flex h-6 items-center gap-1 rounded-full bg-white/20 px-2.5 text-[11px] font-semibold text-white">
+                <Sparkles className="h-3 w-3" /> Ask
+              </button>
+            )}
+          </div>
+        </form>
+      </section>
+
+      {/* ── Body ── */}
+      <div className="px-4 py-4 space-y-5 pb-12 max-w-screen-xl mx-auto w-full">
+
+        {/* Mega Sale banner */}
+        <div className="relative overflow-hidden rounded-2xl bg-[#1e1150] px-5 py-4 flex items-center justify-between shadow-xl">
+          <div className="absolute -right-6 -top-6 h-36 w-36 rounded-full bg-primary/20 blur-2xl pointer-events-none" />
+          <div className="relative z-10 space-y-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white/90">
+              🔥 Limited Time
+            </span>
+            <p className="text-2xl font-extrabold text-white">Mega Sale</p>
+            <p className="text-sm text-white/70">Up to 60% Off</p>
+            <button
+              onClick={() => setLocation("/products")}
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-primary hover:bg-white/90 transition-colors"
+            >
+              Shop Now <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="relative z-10 text-5xl select-none">🛍️</div>
+        </div>
+
+        {/* Quick-nav — 4 dark filled icons, matches mobile */}
+        <div className="grid grid-cols-4 gap-3">
+          {([
+            { href: "/products",           icon: LayoutGrid, label: "Categories" },
+            { href: "/products?sort=sale", icon: Zap,        label: "Flash Sale" },
+            { href: "/products?sort=new",  icon: Truck,      label: "Free Ship"  },
+            { href: "/products",           icon: Tag,        label: "Vouchers"   },
+          ] as const).map(({ href, icon: Icon, label }) => (
+            <Link key={label} href={href}>
+              <button className="flex flex-col items-center gap-2 w-full group">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1e1150] dark:bg-[#160d40] group-hover:opacity-80 transition-opacity shadow-sm">
+                  <Icon className="h-5 w-5 text-primary" />
+                </span>
+                <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight">{label}</span>
+              </button>
+            </Link>
+          ))}
+        </div>
+
+        {/* Popular Categories — gradient icon tiles, matches mobile */}
+        {topCats.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-bold">Popular Categories</h2>
+              <Link href="/products"><span className="text-xs font-semibold text-primary hover:underline">See all</span></Link>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+              {topCats.map((cat, i) => {
+                const Icon = catIcon(cat.slug);
+                return (
+                  <Link key={cat.slug} href={`/products?category=${cat.slug}`}>
+                    <button className="flex flex-col items-center gap-1.5 shrink-0 group">
+                      <span className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${CAT_GRADIENTS[i % CAT_GRADIENTS.length]} shadow-sm group-hover:opacity-90 transition-opacity`}>
+                        <Icon className="h-6 w-6 text-white" />
+                      </span>
+                      <span className="text-[10px] font-medium text-foreground/70 max-w-[56px] text-center leading-tight truncate">{cat.name}</span>
+                    </button>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Flash Sale */}
+        {flashList.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-base font-bold flex items-center gap-1.5">
+                <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" /> Flash Sale
+              </h2>
+              <Link href="/products"><span className="text-xs font-semibold text-primary hover:underline">See all</span></Link>
+            </div>
+            <div className="mb-3"><Countdown /></div>
+            <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+              {flashList.map(p => (
+                <Link key={p.id} href={`/products/${p.id}`}>
+                  <div className="relative shrink-0 w-36 group cursor-pointer">
+                    <span className="absolute top-2 left-2 z-10 rounded bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                      -{discountPct(p)}%
                     </span>
+                    <div className="overflow-hidden rounded-2xl bg-muted aspect-square mb-2">
+                      {p.imageUrl
+                        ? <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        : <div className="h-full w-full flex items-center justify-center text-muted-foreground"><ShoppingCart className="h-8 w-8" /></div>
+                      }
+                    </div>
+                    <p className="text-xs font-semibold leading-tight line-clamp-2 mb-0.5">{p.name}</p>
+                    <p className="text-sm font-bold text-primary">{fmt(p)}</p>
                   </div>
                 </Link>
               ))}
             </div>
-          </section>
+          </div>
         )}
 
-        {/* ── Flash Sale ── */}
-        {showFlash.length > 0 && (
-          <section className="mb-10">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-4">
-                <h2 className="text-lg font-bold flex items-center gap-1.5" style={{ color: RED_SALE }}>
-                  ⚡ Flash Sale
-                </h2>
-                <CountdownTimer />
-              </div>
-              <Link href="/products">
-                <span className="text-sm font-semibold flex items-center gap-1" style={{ color: PURPLE }}>
-                  See all <ArrowRight size={13} />
-                </span>
-              </Link>
-            </div>
-            <div className="flex gap-4 overflow-x-auto pb-3" style={{ scrollbarWidth: "none" }}>
-              {showFlash.map((p) => <FlashCard key={p.id} product={p} />)}
-            </div>
-          </section>
-        )}
-
-        {/* ── Category product rows ── */}
+        {/* Category product rows */}
         {isLoading ? (
-          <div className="space-y-10 mb-12">
-            {[1, 2, 3].map((i) => (
+          <div className="space-y-6">
+            {[1, 2].map(i => (
               <div key={i} className="space-y-3">
-                <Skeleton className="h-6 w-48 rounded" />
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                  {Array.from({ length: 5 }).map((_, j) => (
+                <Skeleton className="h-5 w-32 rounded" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {Array.from({ length: 4 }).map((_, j) => (
                     <div key={j} className="space-y-2">
                       <Skeleton className="aspect-square rounded-xl" />
                       <Skeleton className="h-3 w-2/3" />
@@ -370,63 +398,24 @@ export default function UserDashboard() {
             ))}
           </div>
         ) : categoryGroups.length === 0 ? (
-          <div className="text-center py-20" style={{ color: TEXT_MUTED }}>
-            <p className="text-lg font-medium">No products yet.</p>
+          <div className="text-center py-16 text-muted-foreground">
+            <p className="text-base font-medium">No products yet.</p>
             <p className="text-sm mt-1">Add products via the admin panel.</p>
           </div>
         ) : (
-          <div className="space-y-10 mb-12">
-            {visibleGroups.map((group) => (
-              <section key={group.slug}>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold capitalize" style={{ color: TEXT_DARK }}>{group.name}</h2>
-                  <Link href={`/products?category=${group.slug}`}>
-                    <span className="text-sm font-semibold flex items-center gap-1" style={{ color: PURPLE }}>
-                      See all <ArrowRight size={13} />
-                    </span>
-                  </Link>
+          <div className="space-y-6">
+            {categoryGroups.map(({ slug, name, products }) => (
+              <div key={slug}>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-bold capitalize">{name}</h2>
+                  <Link href={`/products?category=${slug}`}><span className="text-xs font-semibold text-primary hover:underline">See all</span></Link>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                  {group.products.slice(0, 5).map((p) => <ProductCard key={p.id} product={p} />)}
+                  {products.slice(0, 5).map(p => <ProductCard key={p.id} product={p} />)}
                 </div>
-              </section>
-            ))}
-
-            {hasMore && (
-              <div className="flex justify-center pt-2">
-                <button
-                  onClick={() => setCatsExpanded((e) => !e)}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-sm transition-colors"
-                  style={{ border: `2px solid ${PURPLE}`, color: PURPLE, backgroundColor: WHITE }}
-                >
-                  {catsExpanded ? (
-                    <><ChevronUp size={16} /> Show less</>
-                  ) : (
-                    <><ChevronDown size={16} /> Show {categoryGroups.length - VISIBLE_CATS} more categories</>
-                  )}
-                </button>
               </div>
-            )}
+            ))}
           </div>
-        )}
-
-        {/* ── Trending ── */}
-        {trending.length > 0 && (
-          <section className="mb-12">
-            <h2 className="text-lg font-bold mb-4" style={{ color: TEXT_DARK }}>🔥 Trending</h2>
-            <div className="flex flex-wrap gap-2">
-              {trending.map((term) => (
-                <button
-                  key={term}
-                  onClick={() => setLocation(`/products?q=${encodeURIComponent(term)}`)}
-                  className="text-sm font-medium px-4 py-2 rounded-full transition-colors hover:opacity-80"
-                  style={{ backgroundColor: PURPLE_LIGHT, color: PURPLE }}
-                >
-                  {term}
-                </button>
-              ))}
-            </div>
-          </section>
         )}
       </div>
     </div>
