@@ -109,26 +109,58 @@ export async function placeOrderForSession(
   return { order: order! };
 }
 
+const ORDER_STATUS_COPY: Record<string, { title: string; message: (trackingCode: string, total?: number, currency?: string) => string }> = {
+  placed: {
+    title: "🎉 Order Placed",
+    message: (t, total, currency) => `Your order #${t} has been placed successfully. Total: ${new Intl.NumberFormat("en-US", { style: "currency", currency: currency ?? "USD" }).format(total ?? 0)}. We'll notify you once payment is confirmed.`,
+  },
+  confirmed: {
+    title: "✅ Payment Confirmed",
+    message: (t) => `Great news! Your payment for order #${t} has been confirmed. We're now preparing your items for dispatch.`,
+  },
+  dispatched: {
+    title: "🚚 Order On the Way",
+    message: (t) => `Your order #${t} has been dispatched and is on its way to you. Keep an eye out for your delivery!`,
+  },
+  delivered: {
+    title: "📦 Order Delivered",
+    message: (t) => `Your order #${t} has been delivered. We hope you love your purchase! Please reach out if you need any help.`,
+  },
+  cancelled: {
+    title: "❌ Order Cancelled",
+    message: (t) => `Your order #${t} has been cancelled. If this was unexpected, please contact our support team.`,
+  },
+};
+
 export async function sendPlacedEmailAndNotification(
   order: { trackingCode: string; total: number; currency: string; shippingAddress: string },
   userId: number,
 ) {
   const [userRow] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-  if (!userRow?.email) return;
-  await sendOrderEmail({
-    to: userRow.email,
-    name: userRow.name,
-    orderStatus: "placed",
-    trackingCode: order.trackingCode,
-    total: order.total,
-    currency: order.currency,
-    shippingAddress: order.shippingAddress,
-  });
+  if (!userRow) return;
+
+  const copy = ORDER_STATUS_COPY.placed;
+  // Always insert the in-app notification
   await db.insert(notificationsTable).values({
     userId: userRow.id,
-    title: `Order ${order.trackingCode} placed`,
-    message: `Your order has been placed successfully. Total: $${order.total.toLocaleString()}.`,
+    title: copy.title,
+    message: copy.message(order.trackingCode, order.total, order.currency),
   });
+
+  // Email is best-effort — don't let it block the notification
+  if (userRow.email) {
+    try {
+      await sendOrderEmail({
+        to: userRow.email,
+        name: userRow.name,
+        orderStatus: "placed",
+        trackingCode: order.trackingCode,
+        total: order.total,
+        currency: order.currency,
+        shippingAddress: order.shippingAddress,
+      });
+    } catch (err) { logger.error({ err }, "order placed email failed"); }
+  }
 }
 
 router.get("/orders", async (req: Request, res: Response) => {
@@ -224,23 +256,35 @@ router.patch(
           .from(usersTable)
           .where(eq(usersTable.id, updated.userId));
 
-        if (userRow?.email) {
-          await sendOrderEmail({
-            to: userRow.email,
-            name: userRow.name,
-            orderStatus: updated.status,
-            trackingCode: updated.trackingCode,
-            total: updated.total,
-            currency: updated.currency,
-            shippingAddress: updated.shippingAddress,
-          });
+        if (userRow) {
+          const copy = ORDER_STATUS_COPY[updated.status] ?? {
+            title: `Order #${updated.trackingCode} Updated`,
+            message: (t: string) => `Your order #${t} status is now: ${updated.status}.`,
+          };
+
+          // Always send in-app notification
           await db.insert(notificationsTable).values({
             userId: userRow.id,
-            title: `Order ${updated.trackingCode}`,
-            message: `Your order status has been updated to: ${updated.status}.`,
+            title: copy.title,
+            message: copy.message(updated.trackingCode, updated.total, updated.currency),
           });
+
+          // Email is best-effort
+          if (userRow.email) {
+            try {
+              await sendOrderEmail({
+                to: userRow.email,
+                name: userRow.name,
+                orderStatus: updated.status,
+                trackingCode: updated.trackingCode,
+                total: updated.total,
+                currency: updated.currency,
+                shippingAddress: updated.shippingAddress,
+              });
+            } catch (err) { logger.error({ err }, "order status email failed"); }
+          }
         }
-      } catch (err) { logger.error({ err }, "order status email failed"); }
+      } catch (err) { logger.error({ err }, "order status notification failed"); }
     }
 
     res.json(serializeOrder(updated));

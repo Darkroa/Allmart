@@ -4,6 +4,7 @@ import { eq, desc, gte, and, sql } from "drizzle-orm";
 import { UpdateUserRoleBody } from "@workspace/api-zod";
 import { requireRole } from "../lib/auth";
 import { serializeOrder } from "../lib/serializers";
+import { sendOrderEmail } from "./email";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -97,13 +98,33 @@ router.patch("/admin/orders/:id/verify-payment", requireRole("admin", "pm"), asy
   if (updated.userId && status !== "pending") {
     try {
       const isVerified = status === "verified";
+      const notifTitle = isVerified ? "✅ Payment Confirmed" : "❌ Payment Rejected";
+      const notifMessage = isVerified
+        ? `Great news! Your payment for order #${updated.trackingCode} has been confirmed. We're now preparing your items for dispatch.`
+        : `Your payment for order #${updated.trackingCode} could not be verified. Please contact support or resubmit your proof of payment.`;
+
+      // Always insert in-app notification
       await db.insert(notificationsTable).values({
         userId: updated.userId,
-        title: isVerified ? "Payment verified ✓" : "Payment rejected",
-        message: isVerified
-          ? `Your payment for order ${updated.trackingCode} has been verified. Your order is being processed.`
-          : `Your payment for order ${updated.trackingCode} could not be verified. Please contact support or resubmit your proof of payment.`,
+        title: notifTitle,
+        message: notifMessage,
       });
+
+      // Also send email if we have one
+      const [userRow] = await db.select().from(usersTable).where(eq(usersTable.id, updated.userId));
+      if (userRow?.email) {
+        try {
+          await sendOrderEmail({
+            to: userRow.email,
+            name: userRow.name,
+            orderStatus: isVerified ? "confirmed" : "payment_rejected",
+            trackingCode: updated.trackingCode,
+            total: updated.total,
+            currency: updated.currency,
+            shippingAddress: updated.shippingAddress,
+          });
+        } catch (err) { logger.error({ err }, "payment verification email failed"); }
+      }
     } catch (err) {
       logger.error({ err }, "customer payment notification failed");
     }

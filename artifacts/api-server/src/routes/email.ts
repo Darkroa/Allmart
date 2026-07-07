@@ -71,10 +71,11 @@ export async function sendOrderEmail(opts: {
   const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: opts.currency }).format(opts.total);
   const statusMessages: Record<string, string> = {
     placed: "Your order has been placed and is being processed.",
-    confirmed: "Your order has been confirmed and is being prepared.",
+    confirmed: "Your payment has been confirmed. Your order is now being prepared.",
     dispatched: "Great news! Your order is on its way.",
     delivered: "Your order has been delivered. Enjoy!",
     cancelled: "Your order has been cancelled.",
+    payment_rejected: "Your payment could not be verified. Please contact support or resubmit your proof of payment.",
   };
   const msg = statusMessages[opts.orderStatus] ?? `Your order status is now: ${opts.orderStatus}.`;
   const statusLabel = opts.orderStatus.charAt(0).toUpperCase() + opts.orderStatus.slice(1);
