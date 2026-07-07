@@ -19,9 +19,17 @@ import {
   useAddCartItem,
   useClearCart,
 } from '@workspace/api-client-react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
+
+const PURPLE = '#7C3AED';
+const PURPLE_LIGHT = '#EDE9FE';
+const WHITE = '#FFFFFF';
+const BG = '#F8F7FF';
+const TEXT_DARK = '#1C1028';
+const TEXT_MUTED = '#6B7280';
+const RED = '#EF4444';
+const BORDER = '#F0EEFF';
+const TAB_BAR_H = 84;
 
 function formatPrice(amount: number, currency: string) {
   if (currency === 'NGN') return `₦${amount.toLocaleString()}`;
@@ -29,11 +37,9 @@ function formatPrice(amount: number, currency: string) {
 }
 
 export default function CartScreen() {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
-  const queryClient = useQueryClient();
 
   const { data: cart, isLoading } = useGetCart();
   const { mutateAsync: removeItem } = useRemoveCartItem();
@@ -43,7 +49,8 @@ export default function CartScreen() {
   const [removingId, setRemovingId] = useState<number | null>(null);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
+  // Extra bottom = tab bar height + safe area
+  const bottomPad = TAB_BAR_H + (Platform.OS === 'ios' ? insets.bottom : 16);
 
   const items = cart?.items ?? [];
   const subtotal = cart?.subtotal ?? 0;
@@ -69,138 +76,110 @@ export default function CartScreen() {
     await clearCart({});
   };
 
+  /* ── Loading ── */
   if (isLoading) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[st.centered, { backgroundColor: BG }]}>
+        <ActivityIndicator size="large" color={PURPLE} />
       </View>
     );
   }
 
+  /* ── Empty state ── */
   if (items.length === 0) {
     return (
-      <View
-        style={[
-          styles.centered,
-          {
-            backgroundColor: colors.background,
-            paddingTop: topPad,
-            paddingBottom: bottomPad,
-          },
-        ]}
-      >
-        <View style={[styles.emptyIcon, { backgroundColor: colors.accent }]}>
-          <Feather name="shopping-cart" size={32} color={colors.primary} />
+      <View style={[st.centered, { backgroundColor: BG, paddingTop: topPad, paddingBottom: bottomPad }]}>
+        <View style={st.emptyIconWrap}>
+          <Feather name="shopping-cart" size={32} color={PURPLE} />
         </View>
-        <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-          Your cart is empty
-        </Text>
-        <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-          Browse products and add something you love
-        </Text>
+        <Text style={st.emptyTitle}>Your cart is empty</Text>
+        <Text style={st.emptySub}>Browse products and add something you love</Text>
         <TouchableOpacity
-          style={[styles.shopBtn, { backgroundColor: colors.primary }]}
+          style={st.shopBtn}
           onPress={() => router.push('/(tabs)/search')}
+          activeOpacity={0.85}
         >
-          <Text style={[styles.shopBtnText, { color: colors.primaryForeground }]}>
-            Start Shopping
-          </Text>
+          <Feather name="search" size={16} color={WHITE} />
+          <Text style={st.shopBtnText}>Start Shopping</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
+  /* ── Cart list ── */
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View
-        style={[
-          styles.headerBar,
-          {
-            paddingTop: topPad + 12,
-            borderBottomColor: colors.border,
-            backgroundColor: colors.background,
-          },
-        ]}
-      >
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-          My Cart
-        </Text>
-        <TouchableOpacity onPress={handleClear}>
-          <Text style={[styles.clearText, { color: colors.destructive }]}>Clear</Text>
+    <View style={[st.root, { backgroundColor: BG }]}>
+      {/* Header */}
+      <View style={[st.header, { paddingTop: topPad + 12 }]}>
+        <Text style={st.headerTitle}>My Cart</Text>
+        <TouchableOpacity onPress={handleClear} style={st.clearBtn}>
+          <Feather name="trash-2" size={15} color={RED} />
+          <Text style={st.clearText}>Clear</Text>
         </TouchableOpacity>
       </View>
 
+      {/* Items list */}
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.productId)}
-        contentContainerStyle={[styles.list, { paddingBottom: 16 }]}
+        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: bottomPad + 120 }}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
-          <View style={[styles.itemCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={st.card}>
             <Image
               source={{ uri: item.product.imageUrl }}
-              style={[styles.itemImage, { backgroundColor: colors.secondary }]}
+              style={st.img}
               resizeMode="cover"
             />
-            <View style={styles.itemInfo}>
-              <Text style={[styles.itemName, { color: colors.foreground }]} numberOfLines={2}>
-                {item.product.name}
-              </Text>
-              <Text style={[styles.itemPrice, { color: colors.primary }]}>
+            <View style={st.info}>
+              <Text style={st.itemName} numberOfLines={2}>{item.product.name}</Text>
+              <Text style={st.itemPrice}>
                 {formatPrice(item.product.price, item.product.currency)}
               </Text>
-              <View style={styles.qtyRow}>
+              {/* Qty controls */}
+              <View style={st.qtyRow}>
                 <TouchableOpacity
-                  style={[styles.qtyBtn, { borderColor: colors.border }]}
+                  style={[st.qtyBtn, item.quantity === 1 && st.qtyBtnDestructive]}
                   onPress={() => handleRemove(item.productId)}
                   disabled={removingId === item.productId}
                 >
                   {removingId === item.productId ? (
-                    <ActivityIndicator size="small" color={colors.mutedForeground} />
+                    <ActivityIndicator size="small" color={TEXT_MUTED} />
                   ) : (
                     <Feather
                       name={item.quantity === 1 ? 'trash-2' : 'minus'}
                       size={14}
-                      color={item.quantity === 1 ? colors.destructive : colors.foreground}
+                      color={item.quantity === 1 ? RED : TEXT_DARK}
                     />
                   )}
                 </TouchableOpacity>
-                <Text style={[styles.qtyText, { color: colors.foreground }]}>
-                  {item.quantity}
-                </Text>
+                <Text style={st.qtyNum}>{item.quantity}</Text>
                 <TouchableOpacity
-                  style={[styles.qtyBtn, { borderColor: colors.border }]}
+                  style={st.qtyBtn}
                   onPress={() => handleIncrement(item.productId)}
                 >
-                  <Feather name="plus" size={14} color={colors.foreground} />
+                  <Feather name="plus" size={14} color={TEXT_DARK} />
                 </TouchableOpacity>
+                {/* Line total */}
+                <Text style={st.lineTotal}>
+                  {formatPrice(item.product.price * item.quantity, item.product.currency)}
+                </Text>
               </View>
             </View>
           </View>
         )}
       />
 
-      {/* Checkout footer */}
-      <View
-        style={[
-          styles.footer,
-          {
-            borderTopColor: colors.border,
-            backgroundColor: colors.background,
-            paddingBottom: bottomPad + 16,
-          },
-        ]}
-      >
-        <View style={styles.subtotalRow}>
-          <Text style={[styles.subtotalLabel, { color: colors.mutedForeground }]}>
-            Subtotal
-          </Text>
-          <Text style={[styles.subtotalAmount, { color: colors.foreground }]}>
-            {formatPrice(subtotal, currency)}
-          </Text>
+      {/* Sticky footer */}
+      <View style={[st.footer, { paddingBottom: (Platform.OS === 'ios' ? insets.bottom : 16) + 8 }]}>
+        <View style={st.totalRow}>
+          <Text style={st.totalLabel}>Subtotal</Text>
+          <Text style={st.totalAmount}>{formatPrice(subtotal, currency)}</Text>
         </View>
+        <Text style={st.totalHint}>Shipping & taxes calculated at checkout</Text>
         <TouchableOpacity
-          style={[styles.checkoutBtn, { backgroundColor: colors.primary }]}
+          style={st.checkoutBtn}
+          activeOpacity={0.88}
           onPress={() => {
             if (!user) {
               router.push('/(tabs)/account');
@@ -209,72 +188,117 @@ export default function CartScreen() {
             }
           }}
         >
-          <Text style={[styles.checkoutBtnText, { color: colors.primaryForeground }]}>
+          <Feather name="lock" size={16} color={WHITE} />
+          <Text style={st.checkoutText}>
             {user ? 'Proceed to Checkout' : 'Sign in to Checkout'}
           </Text>
-          <Feather name="arrow-right" size={18} color={colors.primaryForeground} />
+          <Feather name="arrow-right" size={16} color={WHITE} />
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
+const st = StyleSheet.create({
+  root: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32 },
-  headerBar: {
+
+  /* Header */
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 14,
+    backgroundColor: WHITE,
     borderBottomWidth: 1,
+    borderBottomColor: BORDER,
   },
-  headerTitle: { fontSize: 22, fontFamily: 'Inter_700Bold' },
-  clearText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
-  list: { padding: 16, gap: 12 },
-  itemCard: {
+  headerTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: TEXT_DARK },
+  clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  clearText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: RED },
+
+  /* Cart item card */
+  card: {
     flexDirection: 'row',
-    borderRadius: 14,
-    borderWidth: 1,
+    backgroundColor: WHITE,
+    borderRadius: 16,
     overflow: 'hidden',
-    gap: 0,
-  },
-  itemImage: { width: 90, height: 90 },
-  itemInfo: { flex: 1, padding: 12, gap: 5, justifyContent: 'center' },
-  itemName: { fontSize: 13, fontFamily: 'Inter_500Medium', lineHeight: 18 },
-  itemPrice: { fontSize: 15, fontFamily: 'Inter_700Bold' },
-  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 2 },
-  qtyBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: BORDER,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  qtyText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', minWidth: 20, textAlign: 'center' },
+  img: { width: 96, height: 96 },
+  info: { flex: 1, padding: 12, gap: 4, justifyContent: 'center' },
+  itemName: { fontSize: 13, fontFamily: 'Inter_500Medium', color: TEXT_DARK, lineHeight: 18 },
+  itemPrice: { fontSize: 15, fontFamily: 'Inter_700Bold', color: PURPLE },
+
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
+  qtyBtn: {
+    width: 30, height: 30, borderRadius: 10,
+    borderWidth: 1, borderColor: BORDER,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: BG,
+  },
+  qtyBtnDestructive: { borderColor: '#FEE2E2', backgroundColor: '#FFF5F5' },
+  qtyNum: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: TEXT_DARK, minWidth: 24, textAlign: 'center' },
+  lineTotal: { marginLeft: 'auto' as any, fontSize: 13, fontFamily: 'Inter_600SemiBold', color: TEXT_MUTED },
+
+  /* Footer */
   footer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: WHITE,
     borderTopWidth: 1,
-    gap: 14,
+    borderTopColor: BORDER,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  subtotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  subtotalLabel: { fontSize: 14, fontFamily: 'Inter_400Regular' },
-  subtotalAmount: { fontSize: 20, fontFamily: 'Inter_700Bold' },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  totalLabel: { fontSize: 14, fontFamily: 'Inter_400Regular', color: TEXT_MUTED },
+  totalAmount: { fontSize: 22, fontFamily: 'Inter_700Bold', color: TEXT_DARK },
+  totalHint: { fontSize: 11, fontFamily: 'Inter_400Regular', color: TEXT_MUTED, marginTop: -4 },
   checkoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    backgroundColor: PURPLE,
+    borderRadius: 16,
     paddingVertical: 16,
-    borderRadius: 14,
+    shadowColor: PURPLE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  checkoutBtnText: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
-  emptyIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  emptyTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', textAlign: 'center' },
-  emptySubtitle: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20 },
-  shopBtn: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: 100, marginTop: 4 },
-  shopBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  checkoutText: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: WHITE, flex: 1, textAlign: 'center' },
+
+  /* Empty state */
+  emptyIconWrap: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: PURPLE_LIGHT,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: TEXT_DARK, textAlign: 'center' },
+  emptySub: { fontSize: 14, fontFamily: 'Inter_400Regular', color: TEXT_MUTED, textAlign: 'center', lineHeight: 20 },
+  shopBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: PURPLE, paddingHorizontal: 28, paddingVertical: 14,
+    borderRadius: 100, marginTop: 8,
+  },
+  shopBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: WHITE },
 });
