@@ -32,6 +32,7 @@ type TurnState = {
   needsShippingAddress?: boolean;
   placedOrder?: any;
   stripeCheckoutUrl?: string | null;
+  stripeError?: string | null;
   bankDetails?: BankDetails | null;
 };
 
@@ -50,10 +51,9 @@ export default function Assistant() {
   const sendChat = useSendChatMessage({
     mutation: {
       onSuccess: (data: any) => {
-        queryClient.invalidateQueries({ queryKey: getListChatMessagesQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-        
+        // Set turnStates BEFORE invalidating queries so the UI card is ready
+        // when the refetched message list re-renders (avoids the race where
+        // the message appears but stripeCheckoutUrl is still null).
         if (data.assistantMessage?.id) {
           setTurnStates(prev => ({
             ...prev,
@@ -62,10 +62,14 @@ export default function Assistant() {
               needsShippingAddress: data.needsShippingAddress,
               placedOrder: data.placedOrder,
               stripeCheckoutUrl: data.stripeCheckoutUrl ?? null,
+              stripeError: data.stripeError ?? null,
               bankDetails: data.bankDetails ?? null,
             }
           }));
         }
+        queryClient.invalidateQueries({ queryKey: getListChatMessagesQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
       }
     }
   });
@@ -308,6 +312,18 @@ export default function Assistant() {
                           <X className="h-4 w-4" /> Cancel
                         </Button>
                       </div>
+                    </Card>
+                  )}
+
+                  {/* Stripe error */}
+                  {turnState?.stripeError && !turnState.stripeCheckoutUrl && (
+                    <Card className="mt-2 p-4 border-destructive/20 bg-destructive/5 w-full max-w-md space-y-2">
+                      <h4 className="font-semibold text-destructive flex items-center gap-2 text-sm">
+                        <CreditCard className="h-4 w-4" /> Card payment unavailable
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        {turnState.stripeError}. Please choose bank transfer or pay on delivery instead.
+                      </p>
                     </Card>
                   )}
 

@@ -6,6 +6,7 @@ import {
   productsTable,
   cartItemsTable,
   settingsTable,
+  ordersTable,
 } from "@workspace/db";
 import { and, eq, desc, asc, ilike, or, inArray, sql } from "drizzle-orm";
 import { SendChatMessageBody } from "@workspace/api-zod";
@@ -249,11 +250,23 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
     tool_calls?: unknown;
   };
 
+  // Recent orders for this session — gives the AI context so it doesn't re-ask for items the shopper already bought
+  const recentOrders = await db
+    .select({ id: ordersTable.id, trackingCode: ordersTable.trackingCode, status: ordersTable.status, total: ordersTable.total })
+    .from(ordersTable)
+    .where(eq(ordersTable.sessionId, sessionId))
+    .orderBy(desc(ordersTable.createdAt))
+    .limit(3);
+  const recentOrdersSummary =
+    recentOrders.length === 0
+      ? "(none)"
+      : recentOrders.map((o) => `#${o.id} tracking=${o.trackingCode} status=${o.status} total=${o.total}`).join("; ");
+
   const messages: MessageParam[] = [
     { role: "system", content: SYSTEM_PROMPT },
     {
       role: "system",
-      content: `Current cart: ${cartSummary}. confirmOrder=${confirmOrder ? "true" : "false"}. shippingAddress=${shippingAddress ?? "(none provided)"}. paymentMethod=${paymentMethod ?? "(none chosen)"}`,
+      content: `Current cart: ${cartSummary}. confirmOrder=${confirmOrder ? "true" : "false"}. shippingAddress=${shippingAddress ?? "(none provided)"}. paymentMethod=${paymentMethod ?? "(none chosen)"}. Recent orders this session: ${recentOrdersSummary}.`,
     },
     ...history.map((m) => ({
       role: m.role as "user" | "assistant",
@@ -267,6 +280,7 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
   let needsShippingAddress = false;
   let needsConfirmation = false;
   let stripeCheckoutUrl: string | null = null;
+  let stripeError: string | null = null;
   let bankDetails: Record<string, string> | null = null;
   let assistantText = "";
   let usedProvider: Provider | null = null;
@@ -485,10 +499,12 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
                 }),
               });
             } catch (err) {
+              const errMsg = err instanceof Error ? err.message : String(err);
+              stripeError = `Could not start card payment: ${errMsg}`;
               messages.push({
                 role: "tool",
                 tool_call_id: call.id,
-                content: JSON.stringify({ error: `Stripe session failed: ${String(err)}` }),
+                content: JSON.stringify({ error: stripeError }),
               });
             }
           }
@@ -559,6 +575,15 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
 
   if (!assistantText) assistantText = "Got it.";
 
+  // Some LLM providers (e.g. GROQ, Nvidia) embed function-call XML in msg.content
+  // alongside structured tool_calls. Strip those leaking tags before saving.
+  assistantText = assistantText
+    .replace(/<function_calls>[\s\S]*?<\/function_calls>/g, "")
+    .replace(/<function\([^)]*\)[\s\S]*?<\/function>/g, "")
+    .replace(/<invoke\b[\s\S]*?<\/invoke>/g, "")
+    .trim();
+  if (!assistantText) assistantText = "Got it.";
+
   const [assistantRow] = await db
     .insert(chatMessagesTable)
     .values({
@@ -587,7 +612,6 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
 
   let placedOrder: ReturnType<typeof import("../lib/serializers").serializeOrder> | undefined;
   if (placedOrderId) {
-    const { ordersTable } = await import("@workspace/db");
     const [o] = await db
       .select()
       .from(ordersTable)
@@ -619,6 +643,7 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
     needsConfirmation,
     needsShippingAddress,
     stripeCheckoutUrl,
+    stripeError,
     bankDetails,
     // Provider info — which LLM generated this response
     provider: usedProvider ? serializeProvider(usedProvider) : null,
