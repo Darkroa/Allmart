@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export BASE_PATH="${BASE_PATH:-/}"
+export STOREFRONT_PORT="${STOREFRONT_PORT:-18539}"
+
 echo "==> Installing dependencies..."
 pnpm install --frozen-lockfile
 
@@ -8,9 +11,9 @@ echo "==> Building API server..."
 pnpm --filter @workspace/api-server run build
 
 echo "==> Building storefront..."
-pnpm --filter @workspace/storefront run build
+PORT="${STOREFRONT_PORT}" BASE_PATH="${BASE_PATH}" pnpm --filter @workspace/storefront run build
 
 echo "==> Pushing database schema..."
 pnpm --filter @workspace/db run push
 
-echo "==> Deploy complete."
+echo "==> Deploy complete. Run start.sh to start the servers."
