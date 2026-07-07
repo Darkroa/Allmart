@@ -347,10 +347,10 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={{ paddingHorizontal: H_PAD }}>
+        <View style={{ paddingHorizontal: H_PAD, paddingTop: 16 }}>
 
           {/* ── Hero banner ── */}
-          <View style={[st.heroBanner, { backgroundColor: isDark ? '#2D1F5E' : PURPLE_DARK }]}>
+          <View style={[st.heroBanner, { backgroundColor: '#1e1150' }]}>
             <View style={{ flex: 1 }}>
               <View style={st.saleBadge}>
                 <Text style={st.saleBadgeText}>🔥 Limited Time</Text>
@@ -379,8 +379,8 @@ export default function HomeScreen() {
                 onPress={() => router.push(action.tab as any)}
                 activeOpacity={0.8}
               >
-                <View style={[st.quickIcon, { backgroundColor: isDark ? '#2D1F5E' : PURPLE_LIGHT }]}>
-                  <Feather name={action.icon} size={20} color={isDark ? '#A78BFA' : PURPLE} />
+                <View style={[st.quickIcon, { backgroundColor: '#1e1150' }]}>
+                  <Feather name={action.icon} size={20} color={PURPLE} />
                 </View>
                 <Text style={[st.quickLabel, { color: textDark }]}>{action.label}</Text>
               </TouchableOpacity>
@@ -514,17 +514,14 @@ const st = StyleSheet.create({
   header: {
     backgroundColor: PURPLE,
     paddingHorizontal: H_PAD,
-    paddingBottom: 18,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    marginBottom: 16,
+    paddingBottom: 14,
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  greeting: { fontSize: 12, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.75)', marginBottom: 2 },
-  headerTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', color: WHITE },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  greeting: { fontSize: 11, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.70)', marginBottom: 1 },
+  headerTitle: { fontSize: 13, fontFamily: 'Inter_700Bold', color: WHITE },
   rightActions: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   iconBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 32, height: 32, borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center', justifyContent: 'center',
   },
