@@ -64,7 +64,7 @@ NowBuy is an AI-powered Nigerian e-commerce platform. It uses a pnpm monorepo wi
 
 ## Admin Account
 
-- Email: `admin@nowbuy.app`
+- Email: `admin@nowbuy.com`
 - Password: `nowbuyadmin1234`
 
 ## Admin Routes
