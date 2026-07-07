@@ -16,5 +16,8 @@ PORT="${STOREFRONT_PORT}" BASE_PATH="${BASE_PATH}" pnpm --filter @workspace/stor
 echo "==> Pushing database schema..."
 pnpm --filter @workspace/db run push
 
+echo "==> Seeding database..."
+pnpm --filter @workspace/db run seed
+
 echo "==> Deploy complete. Starting servers..."
 bash "$(dirname "${BASH_SOURCE[0]}")/start.sh"

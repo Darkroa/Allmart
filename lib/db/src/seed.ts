@@ -1,0 +1,90 @@
+import bcrypt from "bcryptjs";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
+import { eq } from "drizzle-orm";
+import { usersTable } from "./schema/users.js";
+import { settingsTable } from "./schema/settings.js";
+
+const { Pool } = pg;
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL must be set.");
+}
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const db = drizzle(pool);
+
+async function upsertSetting(key: string, value: string) {
+  await db
+    .insert(settingsTable)
+    .values({ key, value })
+    .onConflictDoNothing();
+}
+
+async function seedUsers() {
+  const users = [
+    {
+      email: "admin@allmart.com",
+      name: "Admin",
+      password: "admin@allmart1234",
+      role: "admin" as const,
+    },
+  ];
+
+  for (const u of users) {
+    const [existing] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.email, u.email));
+
+    if (existing) {
+      console.log(`  ✓ ${u.email} already exists — skipping.`);
+      continue;
+    }
+
+    const passwordHash = await bcrypt.hash(u.password, 10);
+    await db.insert(usersTable).values({
+      email: u.email,
+      name: u.name,
+      passwordHash,
+      role: u.role,
+      profileComplete: true,
+    });
+    console.log(`  ✓ Created ${u.role}: ${u.email}`);
+  }
+}
+
+async function seedSettings() {
+  const defaults = [
+    { key: "referralSignupBonus",  value: "20" },
+    { key: "referralReferrerBonus", value: "10" },
+    {
+      key: "referralNote",
+      value: "Refer friends and earn bonus credits you can use on your next order!",
+    },
+  ];
+
+  for (const s of defaults) {
+    await upsertSetting(s.key, s.value);
+    console.log(`  ✓ Setting: ${s.key} = ${s.value}`);
+  }
+}
+
+async function main() {
+  console.log("==> Seeding database...");
+
+  console.log("  Users:");
+  await seedUsers();
+
+  console.log("  Settings:");
+  await seedSettings();
+
+  console.log("==> Seed complete.");
+  await pool.end();
+}
+
+main().catch((err) => {
+  console.error("Seed failed:", err);
+  pool.end();
+  process.exit(1);
+});
