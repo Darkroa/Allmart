@@ -8,23 +8,109 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
-  Alert,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSignIn, useSignUp, useListOrders } from '@workspace/api-client-react';
+import type { Order } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
 
 type Tab = 'signin' | 'signup';
 
+const LAVENDER_BG = '#EDE8F8';
+const LAVENDER_MID = '#C9BCF0';
+const PURPLE = '#8B7BD8';
+const CARD_BG = '#FAF9FF';
+const WHITE = '#FFFFFF';
+const TEXT_DARK = '#2D2248';
+const TEXT_MUTED = '#9B93B8';
+const ROSE_GOLD = '#C9956A';
+const HEART_PINK = '#F08080';
+
 function formatPrice(amount: number, currency: string) {
   if (currency === 'NGN') return `₦${amount.toLocaleString()}`;
   return `${currency} ${amount.toLocaleString()}`;
 }
+
+// Shopping bag logo SVG-like component using RN primitives
+function BagLogo() {
+  return (
+    <View style={logo.container}>
+      {/* Handle */}
+      <View style={logo.handleLeft} />
+      <View style={logo.handleRight} />
+      {/* Bag body */}
+      <View style={logo.bag}>
+        <Text style={logo.letter}>A</Text>
+      </View>
+    </View>
+  );
+}
+
+const logo = StyleSheet.create({
+  container: {
+    width: 100,
+    height: 110,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  handleLeft: {
+    position: 'absolute',
+    top: 2,
+    left: 22,
+    width: 18,
+    height: 26,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderWidth: 4,
+    borderColor: ROSE_GOLD,
+    borderBottomWidth: 0,
+    borderRightWidth: 0,
+    backgroundColor: 'transparent',
+  },
+  handleRight: {
+    position: 'absolute',
+    top: 2,
+    right: 22,
+    width: 18,
+    height: 26,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 10,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderWidth: 4,
+    borderColor: ROSE_GOLD,
+    borderBottomWidth: 0,
+    borderLeftWidth: 0,
+    backgroundColor: 'transparent',
+  },
+  bag: {
+    width: 88,
+    height: 86,
+    borderRadius: 18,
+    backgroundColor: ROSE_GOLD,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#8B5E3C',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  letter: {
+    fontSize: 40,
+    fontFamily: 'Inter_700Bold',
+    color: WHITE,
+    letterSpacing: -1,
+  },
+});
 
 export default function AccountScreen() {
   const colors = useColors();
@@ -77,8 +163,8 @@ export default function AccountScreen() {
 
   if (authLoading) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.centered, { backgroundColor: LAVENDER_BG }]}>
+        <ActivityIndicator size="large" color={PURPLE} />
       </View>
     );
   }
@@ -96,16 +182,16 @@ export default function AccountScreen() {
       >
         {/* Profile card */}
         <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[styles.avatarBig, { backgroundColor: colors.accent }]}>
-            <Text style={[styles.avatarInitial, { color: colors.primary }]}>
+          <View style={[styles.avatarBig, { backgroundColor: LAVENDER_MID }]}>
+            <Text style={[styles.avatarInitial, { color: PURPLE }]}>
               {user.name.charAt(0).toUpperCase()}
             </Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.profileName, { color: colors.foreground }]}>{user.name}</Text>
             <Text style={[styles.profileEmail, { color: colors.mutedForeground }]}>{user.email}</Text>
-            <View style={[styles.roleBadge, { backgroundColor: colors.accent }]}>
-              <Text style={[styles.roleText, { color: colors.primary }]}>{user.role}</Text>
+            <View style={[styles.roleBadge, { backgroundColor: LAVENDER_BG }]}>
+              <Text style={[styles.roleText, { color: PURPLE }]}>{user.role}</Text>
             </View>
           </View>
         </View>
@@ -120,7 +206,7 @@ export default function AccountScreen() {
           </View>
         ) : (
           <View style={{ gap: 10 }}>
-            {(orders ?? []).map((order) => (
+            {(orders ?? []).map((order: Order) => (
               <TouchableOpacity
                 key={order.id}
                 style={[styles.orderCard, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -140,7 +226,7 @@ export default function AccountScreen() {
                             ? '#D1FAE5'
                             : order.status === 'cancelled'
                             ? '#FEE2E2'
-                            : colors.accent,
+                            : LAVENDER_BG,
                       },
                     ]}
                   >
@@ -153,7 +239,7 @@ export default function AccountScreen() {
                               ? '#065F46'
                               : order.status === 'cancelled'
                               ? '#991B1B'
-                              : colors.primary,
+                              : PURPLE,
                         },
                       ]}
                     >
@@ -165,7 +251,7 @@ export default function AccountScreen() {
                   <Text style={[styles.orderItems, { color: colors.mutedForeground }]}>
                     {order.items.length} item{order.items.length !== 1 ? 's' : ''}
                   </Text>
-                  <Text style={[styles.orderTotal, { color: colors.primary }]}>
+                  <Text style={[styles.orderTotal, { color: PURPLE }]}>
                     {formatPrice(order.total, order.currency)}
                   </Text>
                 </View>
@@ -186,131 +272,171 @@ export default function AccountScreen() {
     );
   }
 
-  // ----- Auth form -----
+  // ----- Auth form (new design) -----
   return (
-    <ScrollView
-      style={{ backgroundColor: colors.background }}
-      contentContainerStyle={[
-        styles.authScroll,
-        { paddingTop: topPad + 32, paddingBottom: bottomPad + 16 },
-      ]}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={[styles.logoMark, { backgroundColor: colors.accent }]}>
-        <Feather name="shopping-bag" size={28} color={colors.primary} />
-      </View>
-      <Text style={[styles.authTitle, { color: colors.foreground }]}>AllMart</Text>
-      <Text style={[styles.authSubtitle, { color: colors.mutedForeground }]}>
-        {tab === 'signin' ? 'Welcome back' : 'Create your account'}
-      </Text>
+    <View style={styles.authRoot}>
+      <StatusBar barStyle="dark-content" backgroundColor={LAVENDER_BG} />
+      <ScrollView
+        style={styles.authScroll}
+        contentContainerStyle={[
+          styles.authContent,
+          { paddingTop: topPad + 20, paddingBottom: bottomPad + 24 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Heart */}
+        <Text style={styles.heart}>♥</Text>
 
-      {/* Tab switcher */}
-      <View style={[styles.tabRow, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
-        {(['signin', 'signup'] as Tab[]).map((t) => (
-          <TouchableOpacity
-            key={t}
-            style={[
-              styles.tabBtn,
-              tab === t && { backgroundColor: colors.background },
-            ]}
-            onPress={() => { setTab(t); setAuthError(''); }}
-          >
-            <Text
-              style={[
-                styles.tabBtnText,
-                { color: tab === t ? colors.foreground : colors.mutedForeground },
-              ]}
-            >
-              {t === 'signin' ? 'Sign in' : 'Sign up'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+        {/* Heading */}
+        <Text style={styles.welcomeTitle}>
+          {tab === 'signin' ? 'Welcome Back' : 'Create Account'}
+        </Text>
+        <Text style={styles.welcomeSub}>
+          {tab === 'signin'
+            ? 'Login to continue your journey'
+            : 'Join AllMart today'}
+        </Text>
 
-      {/* Fields */}
-      <View style={styles.fields}>
-        {tab === 'signup' && (
-          <View style={[styles.inputWrap, { borderColor: colors.input, backgroundColor: colors.card }]}>
-            <Feather name="user" size={16} color={colors.mutedForeground} />
+        {/* Bag logo */}
+        <View style={styles.logoWrap}>
+          <BagLogo />
+        </View>
+
+        {/* Card */}
+        <View style={styles.card}>
+          {/* Name field (sign up only) */}
+          {tab === 'signup' && (
+            <View style={styles.inputRow}>
+              <View style={styles.iconCircle}>
+                <Feather name="user" size={18} color={WHITE} />
+              </View>
+              <TextInput
+                style={styles.inputField}
+                placeholder="Full Name"
+                placeholderTextColor={TEXT_MUTED}
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
+            </View>
+          )}
+
+          {/* Email field */}
+          <View style={styles.inputRow}>
+            <View style={styles.iconCircle}>
+              <Feather name="user" size={18} color={WHITE} />
+            </View>
             <TextInput
-              style={[styles.input, { color: colors.foreground }]}
-              placeholder="Full name"
-              placeholderTextColor={colors.mutedForeground}
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
+              style={styles.inputField}
+              placeholder="Email or Username"
+              placeholderTextColor={TEXT_MUTED}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
-        )}
 
-        <View style={[styles.inputWrap, { borderColor: colors.input, backgroundColor: colors.card }]}>
-          <Feather name="mail" size={16} color={colors.mutedForeground} />
-          <TextInput
-            style={[styles.input, { color: colors.foreground }]}
-            placeholder="Email address"
-            placeholderTextColor={colors.mutedForeground}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
+          {/* Password field */}
+          <View style={styles.inputRow}>
+            <View style={styles.iconCircle}>
+              <Feather name="lock" size={18} color={WHITE} />
+            </View>
+            <TextInput
+              style={[styles.inputField, { flex: 1 }]}
+              placeholder="Password"
+              placeholderTextColor={TEXT_MUTED}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPass}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPass(!showPass)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Feather
+                name={showPass ? 'eye-off' : 'eye'}
+                size={18}
+                color={TEXT_MUTED}
+              />
+            </TouchableOpacity>
+          </View>
 
-        <View style={[styles.inputWrap, { borderColor: colors.input, backgroundColor: colors.card }]}>
-          <Feather name="lock" size={16} color={colors.mutedForeground} />
-          <TextInput
-            style={[styles.input, { color: colors.foreground }]}
-            placeholder="Password"
-            placeholderTextColor={colors.mutedForeground}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPass}
-          />
-          <TouchableOpacity onPress={() => setShowPass(!showPass)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Feather name={showPass ? 'eye-off' : 'eye'} size={16} color={colors.mutedForeground} />
+          {/* Forgot password */}
+          {tab === 'signin' && (
+            <TouchableOpacity style={styles.forgotWrap}>
+              <Text style={styles.forgotText}>Forgot Password?</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Error */}
+          {authError ? (
+            <Text style={styles.errorText}>{authError}</Text>
+          ) : null}
+
+          {/* Login / Sign up button */}
+          <TouchableOpacity
+            style={[styles.loginBtn, isPending && { opacity: 0.75 }]}
+            onPress={handleAuth}
+            disabled={isPending}
+            activeOpacity={0.85}
+          >
+            {isPending ? (
+              <ActivityIndicator size="small" color={WHITE} />
+            ) : (
+              <Text style={styles.loginBtnText}>
+                {tab === 'signin' ? 'Login' : 'Create Account'}
+              </Text>
+            )}
           </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or continue with</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Social buttons */}
+          <View style={styles.socialRow}>
+            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.8}>
+              <Text style={styles.googleG}>G</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.8}>
+              <FontAwesome name="apple" size={20} color={TEXT_DARK} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.8}>
+              <FontAwesome name="facebook" size={20} color="#1877F2" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Switch tab */}
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>
+              {tab === 'signin'
+                ? "Don't have an account?"
+                : 'Already have an account?'}
+            </Text>
+            <TouchableOpacity
+              onPress={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setAuthError(''); }}
+            >
+              <Text style={styles.switchLink}>
+                {tab === 'signin' ? ' Sign Up' : ' Sign In'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-
-      {authError ? (
-        <Text style={[styles.errorText, { color: colors.destructive }]}>{authError}</Text>
-      ) : null}
-
-      <TouchableOpacity
-        style={[styles.authBtn, { backgroundColor: colors.primary, opacity: isPending ? 0.7 : 1 }]}
-        onPress={handleAuth}
-        disabled={isPending}
-      >
-        {isPending ? (
-          <ActivityIndicator size="small" color={colors.primaryForeground} />
-        ) : (
-          <Text style={[styles.authBtnText, { color: colors.primaryForeground }]}>
-            {tab === 'signin' ? 'Sign in' : 'Create account'}
-          </Text>
-        )}
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Loading & signed-in
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingHorizontal: 16, gap: 16 },
-  authScroll: { paddingHorizontal: 24, alignItems: 'stretch' },
-  logoMark: { width: 64, height: 64, borderRadius: 20, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 12 },
-  authTitle: { fontSize: 28, fontFamily: 'Inter_700Bold', textAlign: 'center', marginBottom: 4 },
-  authSubtitle: { fontSize: 15, fontFamily: 'Inter_400Regular', textAlign: 'center', marginBottom: 28 },
-  tabRow: { flexDirection: 'row', borderRadius: 12, borderWidth: 1, padding: 4, marginBottom: 24 },
-  tabBtn: { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center' },
-  tabBtnText: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
-  fields: { gap: 12, marginBottom: 16 },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14 },
-  input: { flex: 1, fontSize: 15, fontFamily: 'Inter_400Regular', padding: 0, margin: 0 },
-  errorText: { fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center', marginBottom: 4 },
-  authBtn: { paddingVertical: 16, borderRadius: 14, alignItems: 'center', marginTop: 4 },
-  authBtnText: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
   profileCard: { flexDirection: 'row', gap: 14, borderRadius: 16, borderWidth: 1, padding: 16, alignItems: 'center', marginBottom: 4 },
   avatarBig: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { fontSize: 24, fontFamily: 'Inter_700Bold' },
@@ -331,4 +457,183 @@ const styles = StyleSheet.create({
   orderTotal: { fontSize: 15, fontFamily: 'Inter_700Bold' },
   signOutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderRadius: 14, paddingVertical: 14, marginTop: 8 },
   signOutText: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+
+  // New auth design
+  authRoot: {
+    flex: 1,
+    backgroundColor: LAVENDER_BG,
+  },
+  authScroll: {
+    flex: 1,
+    backgroundColor: LAVENDER_BG,
+  },
+  authContent: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  heart: {
+    fontSize: 24,
+    color: HEART_PINK,
+    marginBottom: 8,
+  },
+  welcomeTitle: {
+    fontSize: 30,
+    fontFamily: 'Inter_700Bold',
+    color: TEXT_DARK,
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  welcomeSub: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: TEXT_MUTED,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  logoWrap: {
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+
+  // Form card
+  card: {
+    width: '100%',
+    backgroundColor: CARD_BG,
+    borderRadius: 28,
+    paddingHorizontal: 22,
+    paddingTop: 24,
+    paddingBottom: 20,
+    shadowColor: '#7B6BA0',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 8,
+    gap: 14,
+  },
+
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: WHITE,
+    borderRadius: 14,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    shadowColor: '#B0A0D0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: PURPLE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  inputField: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: 'Inter_400Regular',
+    color: TEXT_DARK,
+    paddingVertical: 12,
+    padding: 0,
+    margin: 0,
+  },
+
+  forgotWrap: {
+    alignSelf: 'flex-end',
+    marginTop: -6,
+  },
+  forgotText: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: PURPLE,
+  },
+
+  errorText: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: '#E05555',
+    textAlign: 'center',
+    marginTop: -4,
+  },
+
+  loginBtn: {
+    backgroundColor: PURPLE,
+    borderRadius: 50,
+    paddingVertical: 16,
+    alignItems: 'center',
+    shadowColor: PURPLE,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  loginBtnText: {
+    fontSize: 17,
+    fontFamily: 'Inter_700Bold',
+    color: WHITE,
+    letterSpacing: 0.3,
+  },
+
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: -2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E0D8F0',
+  },
+  dividerText: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    color: TEXT_MUTED,
+  },
+
+  socialRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  socialBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: WHITE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#B0A0D0',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  googleG: {
+    fontSize: 20,
+    fontFamily: 'Inter_700Bold',
+    color: '#EA4335',
+  },
+
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  switchLabel: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: TEXT_MUTED,
+  },
+  switchLink: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: PURPLE,
+  },
 });
