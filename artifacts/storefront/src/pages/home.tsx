@@ -1,13 +1,95 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { useGetStorefrontSummary, useListProducts, useListCategories } from "@workspace/api-client-react";
+import { useGetStorefrontSummary, useListProducts, useListCategories, useGetCurrentUser, useGetCart } from "@workspace/api-client-react";
 import type { Product } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Search, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ArrowRight, Search, Sparkles, ChevronDown, ChevronUp,
+  Store, Package, Bell, ShoppingBag, LogOut, Lock, Users, UserCog, LifeBuoy, UserCircle2, Menu,
+} from "lucide-react";
 import { ProductCard } from "@/components/product-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FeaturedCarousel } from "@/components/featured-carousel";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationsBell } from "@/components/notifications-bell";
+import { StaffSidebarTrigger } from "@/components/staff-sidebar";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { signOut, getGetCurrentUserQueryKey, getGetCartQueryKey, getListOrdersQueryKey, getListChatMessagesQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+
+const SHOP_NAV = [
+  { href: "/products", icon: Store, label: "All Products" },
+  { href: "/products?sort=featured", icon: Sparkles, label: "Featured" },
+  { href: "/products?sort=new", icon: ArrowRight, label: "New Arrivals" },
+  { href: "/products?sort=sale", icon: ChevronDown, label: "Sale" },
+];
+
+function ShopDrawerInner() {
+  const [location] = useLocation();
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <button className="h-9 w-9 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+          <Menu className="h-5 w-5 text-white" />
+        </button>
+      </SheetTrigger>
+      <SheetContent side="left" className="w-72 p-0 flex flex-col">
+        <div className="bg-primary px-6 py-6 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">
+            <Store className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <p className="font-serif font-bold text-white text-lg leading-tight">Shop</p>
+            <p className="text-xs text-white/70">Browse AllMart</p>
+          </div>
+        </div>
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          {SHOP_NAV.map((item) => {
+            const active = location === item.href || (item.href !== "/" && location.startsWith(item.href.split("?")[0]));
+            const ItemIcon = item.icon;
+            return (
+              <SheetClose asChild key={item.href}>
+                <Link
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${
+                    active ? "bg-primary/10 text-primary font-semibold" : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${active ? "bg-primary/15" : "bg-muted"}`}>
+                    <ItemIcon className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                  </span>
+                  {item.label}
+                </Link>
+              </SheetClose>
+            );
+          })}
+        </nav>
+        <div className="border-t border-border/50 px-4 py-3">
+          <SheetClose asChild>
+            <Link href="/products">
+              <Button className="w-full rounded-xl gap-2">
+                <Search className="h-4 w-4" /> Browse all products
+              </Button>
+            </Link>
+          </SheetClose>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
 
 function TrendingSlider({ terms, onSelect }: { terms: string[]; onSelect: (t: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -29,14 +111,14 @@ function TrendingSlider({ terms, onSelect }: { terms: string[]; onSelect: (t: st
 
   const doubled = [...terms, ...terms];
   return (
-    <div className="pt-5 flex items-center gap-2 max-w-2xl mx-auto overflow-hidden">
-      <span className="text-xs text-muted-foreground shrink-0 font-medium">Trending</span>
+    <div className="pt-4 flex items-center gap-2 max-w-2xl mx-auto overflow-hidden">
+      <span className="text-xs text-white/60 shrink-0 font-medium">Trending</span>
       <div ref={ref} className="flex gap-1.5 overflow-hidden" style={{ userSelect: "none" }}>
         {doubled.map((term, i) => (
           <button
             key={i}
             onClick={() => onSelect(term)}
-            className="text-xs px-3 py-1 rounded-full bg-card border border-border/50 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors whitespace-nowrap shrink-0"
+            className="text-xs px-3 py-1 rounded-full bg-white/15 border border-white/20 text-white/80 hover:bg-white/25 hover:text-white transition-colors whitespace-nowrap shrink-0"
           >
             {term}
           </button>
@@ -70,10 +152,23 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const [query, setQuery] = useState("");
   const [catsExpanded, setCatsExpanded] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: summary, isLoading: isSummaryLoading } = useGetStorefrontSummary();
   const { data: categories } = useListCategories();
   const { data: allProducts, isLoading: isProductsLoading } = useListProducts();
+  const { data: meData } = useGetCurrentUser();
+  const { data: cart } = useGetCart();
+  const me = meData?.user ?? null;
+  const isStaff = me && (me.role === "admin" || me.role === "pm");
+  const cartItemCount = cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
+
+  const greeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  };
 
   const handleAskAI = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +178,17 @@ export default function Home() {
     }
   };
 
-  // Group all products by category, keep first 5 per category
+  async function handleSignOut() {
+    await signOut();
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getListChatMessagesQueryKey() }),
+    ]);
+    setLocation("/");
+  }
+
   const categoryGroups = (() => {
     if (!allProducts || !categories) return [];
     const map = new Map<string, Product[]>();
@@ -92,7 +197,6 @@ export default function Home() {
       arr.push(p);
       map.set(p.category, arr);
     }
-    // Order by the categories list
     return categories
       .filter(c => (map.get(c.slug)?.length ?? 0) > 0)
       .map(c => ({ slug: c.slug, name: c.name, products: map.get(c.slug) ?? [] }));
@@ -101,74 +205,120 @@ export default function Home() {
   const VISIBLE_CATS = 4;
   const visibleGroups = catsExpanded ? categoryGroups : categoryGroups.slice(0, VISIBLE_CATS);
   const hasMore = categoryGroups.length > VISIBLE_CATS;
-
   const isLoading = isSummaryLoading || isProductsLoading;
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-3.25rem)]">
-      {/* Hero */}
-      <section className="relative px-6 py-20 md:py-28 lg:py-36 overflow-hidden bg-background border-b border-border/40">
-        <div className="absolute inset-0 bg-primary/5" />
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=2574&auto=format&fit=crop')] bg-cover bg-center opacity-5" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+    <div className="flex flex-col min-h-[100dvh]">
 
-        <div className="container relative z-10 max-w-4xl mx-auto text-center space-y-7">
+      {/* ── Mobile-style purple header ── */}
+      <section className="bg-primary px-4 pb-6 pt-safe">
+        {/* Top action bar */}
+        <div className="flex items-center gap-2 pt-3 pb-4">
+          {/* Left: shop drawer */}
+          <ShopDrawerInner />
 
-          {/* Brand identity */}
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-2xl bg-primary/30 blur-xl scale-110" />
-              <img
-                src="/logo.jpeg"
-                alt="AllMart"
-                className="relative h-24 w-24 rounded-2xl object-cover shadow-xl ring-2 ring-primary/20"
-              />
-            </div>
-            <div>
-              <h1 className="text-4xl md:text-5xl font-serif font-bold tracking-tight text-foreground">
-                AllMart
-              </h1>
-              <span className="inline-flex items-center gap-1.5 mt-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
-                <Sparkles className="h-3.5 w-3.5" /> AI Powered Store
-              </span>
-            </div>
+          {/* Center: greeting + title */}
+          <div className="flex-1 px-2">
+            <p className="text-xs text-white/70 font-medium">
+              {greeting()}{me ? `, ${me.name.split(" ")[0]}` : ""} 👋
+            </p>
+            <p className="text-sm font-bold text-white leading-tight">Find your perfect product</p>
           </div>
 
-          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            Tell our AI what you're looking for — no endless scrolling required.
-          </p>
+          {/* Right: theme toggle, notifications, cart */}
+          <div className="flex items-center gap-1.5">
+            <ThemeToggle variant="home" />
 
-          <form onSubmit={handleAskAI} className="relative max-w-2xl mx-auto mt-8 group">
-            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="relative flex items-center bg-card rounded-full p-2 border-2 border-primary/20 shadow-xl focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all duration-300">
-              <Search className="h-5 w-5 text-muted-foreground ml-3" />
-              <Input
-                type="text"
-                placeholder="Tell me what you need..."
-                className="flex-1 border-0 bg-transparent text-base shadow-none focus-visible:ring-0 px-3 h-12 placeholder:text-muted-foreground/60"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-              <Button type="submit" size="lg" className="rounded-full h-10 px-6 font-semibold gap-2">
-                Ask AI <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </form>
+            {me ? (
+              <>
+                <NotificationsBell enabled={true} variant="home" />
+                {isStaff ? (
+                  <StaffSidebarTrigger role={me.role as "admin" | "pm"} name={me.name} />
+                ) : (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+                        <UserCircle2 className="h-5 w-5 text-white" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem asChild>
+                        <Link href="/profile" className="flex items-center gap-2 cursor-pointer"><UserCog className="h-4 w-4" /> Profile</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/referral" className="flex items-center gap-2 cursor-pointer"><Users className="h-4 w-4" /> Referrals</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/security" className="flex items-center gap-2 cursor-pointer"><Lock className="h-4 w-4" /> Security</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/notifications" className="flex items-center gap-2 cursor-pointer"><Bell className="h-4 w-4" /> Notifications</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/support" className="flex items-center gap-2 cursor-pointer"><LifeBuoy className="h-4 w-4" /> Support</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive gap-2 cursor-pointer">
+                        <LogOut className="h-4 w-4" /> Sign out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </>
+            ) : (
+              <Link href="/account">
+                <button className="flex h-9 items-center gap-1.5 rounded-full bg-white/20 hover:bg-white/30 px-3 text-xs font-semibold text-white transition-colors">
+                  Sign in
+                </button>
+              </Link>
+            )}
 
-          {summary?.trendingSearches && summary.trendingSearches.length > 0 && (
-            <TrendingSlider
-              terms={summary.trendingSearches}
-              onSelect={(term) => {
-                sessionStorage.setItem("initial_assistant_query", `I'm looking for ${term}`);
-                setLocation("/assistant");
-              }}
-            />
-          )}
+            <Link href="/cart">
+              <button className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+                <ShoppingBag className="h-5 w-5 text-white" />
+                {cartItemCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-primary">
+                    {cartItemCount}
+                  </span>
+                )}
+              </button>
+            </Link>
+          </div>
         </div>
+
+        {/* Search bar */}
+        <form onSubmit={handleAskAI}>
+          <div className="flex items-center bg-white/15 hover:bg-white/20 focus-within:bg-white/20 rounded-2xl px-4 py-3 gap-3 transition-colors border border-white/20">
+            <Search className="h-4 w-4 text-white/60 shrink-0" />
+            <input
+              type="text"
+              placeholder="Search for products..."
+              className="flex-1 bg-transparent text-sm text-white placeholder:text-white/50 outline-none"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {query && (
+              <button type="submit" className="shrink-0 flex h-7 items-center gap-1 rounded-full bg-white/20 px-3 text-xs font-semibold text-white hover:bg-white/30 transition-colors">
+                Ask AI
+              </button>
+            )}
+          </div>
+        </form>
+
+        {/* Trending */}
+        {summary?.trendingSearches && summary.trendingSearches.length > 0 && (
+          <TrendingSlider
+            terms={summary.trendingSearches}
+            onSelect={(term) => {
+              sessionStorage.setItem("initial_assistant_query", `I'm looking for ${term}`);
+              setLocation("/assistant");
+            }}
+          />
+        )}
       </section>
 
       {/* Featured Carousel */}
-      <section className="py-10 container max-w-screen-xl mx-auto px-6">
+      <section className="py-8 container max-w-screen-xl mx-auto px-6">
         <div className="flex items-end justify-between mb-5">
           <div>
             <h2 className="text-2xl font-serif font-bold tracking-tight">Featured</h2>
@@ -183,7 +333,7 @@ export default function Home() {
         <FeaturedCarousel />
       </section>
 
-      {/* Category rows — 5 products each */}
+      {/* Category rows */}
       <section className="pb-12 container max-w-screen-xl mx-auto px-6 space-y-10">
         {isLoading ? (
           <div className="space-y-10">
@@ -210,21 +360,11 @@ export default function Home() {
         ) : (
           <>
             {visibleGroups.map((group) => (
-              <CategoryRow
-                key={group.slug}
-                slug={group.slug}
-                name={group.name}
-                products={group.products}
-              />
+              <CategoryRow key={group.slug} slug={group.slug} name={group.name} products={group.products} />
             ))}
-
             {hasMore && (
               <div className="flex justify-center pt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setCatsExpanded((e) => !e)}
-                  className="gap-2"
-                >
+                <Button variant="outline" onClick={() => setCatsExpanded((e) => !e)} className="gap-2">
                   {catsExpanded ? (
                     <><ChevronUp className="h-4 w-4" /> Show less</>
                   ) : (

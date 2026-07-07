@@ -8,20 +8,33 @@ import {
 import { useNotifications } from "@/hooks/use-notifications";
 import { Link } from "wouter";
 
-export function NotificationsBell({ enabled }: { enabled: boolean }) {
+export function NotificationsBell({ enabled, variant }: { enabled: boolean; variant?: "default" | "home" }) {
   const { notifications, unread, markRead, markAllRead } = useNotifications(enabled);
+
+  const trigger = variant === "home" ? (
+    <button className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+      <Bell className="h-4 w-4 text-white" />
+      {unread > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-primary">
+          {unread > 9 ? "9+" : unread}
+        </span>
+      )}
+    </button>
+  ) : (
+    <Button variant="ghost" size="icon" className="relative h-9 w-9">
+      <Bell className="h-4 w-4" />
+      {unread > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+          {unread > 9 ? "9+" : unread}
+        </span>
+      )}
+    </Button>
+  );
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative h-9 w-9">
-          <Bell className="h-4 w-4" />
-          {unread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-              {unread > 9 ? "9+" : unread}
-            </span>
-          )}
-        </Button>
+        {trigger}
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">

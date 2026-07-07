@@ -70,8 +70,8 @@ function NativeTabLayout() {
         <Label>Ask AI</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="cart">
-        <Icon sf={{ default: 'cart', selected: 'cart.fill' }} />
-        <Label>Cart</Label>
+        <Icon sf={{ default: 'bag', selected: 'bag.fill' }} />
+        <Label>My Orders</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="account">
         <Icon sf={{ default: 'person', selected: 'person.fill' }} />
@@ -164,13 +164,17 @@ function ClassicTabLayout() {
         }}
       />
 
-      {/* Cart */}
+      {/* My Orders */}
       <Tabs.Screen
         name="cart"
         options={{
-          title: 'Cart',
-          tabBarBadge: cartCount > 0 ? cartCount : undefined,
-          tabBarIcon: ({ color }) => <CartTabIcon color={color} badge={cartCount} />,
+          title: 'My Orders',
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="bag" tintColor={color} size={24} />
+            ) : (
+              <Feather name="package" size={22} color={color} />
+            ),
         }}
       />
 

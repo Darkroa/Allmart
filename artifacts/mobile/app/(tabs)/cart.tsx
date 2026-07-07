@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -12,93 +12,82 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import {
-  useGetCart,
-  useRemoveCartItem,
-  useAddCartItem,
-  useClearCart,
-} from '@workspace/api-client-react';
-import { useAuth } from '@/context/AuthContext';
+import { useListOrders } from '@workspace/api-client-react';
+import { useTheme } from '@/context/ThemeContext';
+import { format } from 'date-fns';
 
 const PURPLE = '#7C3AED';
+const PURPLE_DARK = '#5B21B6';
 const PURPLE_LIGHT = '#EDE9FE';
 const WHITE = '#FFFFFF';
 const BG = '#F8F7FF';
+const BG_DARK = '#0D0B1A';
 const TEXT_DARK = '#1C1028';
+const TEXT_DARK_D = '#F0EEFF';
 const TEXT_MUTED = '#6B7280';
-const RED = '#EF4444';
 const BORDER = '#F0EEFF';
+const BORDER_DARK = '#2D2550';
 const TAB_BAR_H = 84;
 
-function formatPrice(amount: number, currency: string) {
+type OrderItem = { productId: number; productName: string; quantity: number; imageUrl?: string };
+type Order = {
+  id: number;
+  status: string;
+  total: number;
+  currency: string;
+  trackingCode: string;
+  createdAt: string;
+  items: OrderItem[];
+};
+
+const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+  delivered:  { bg: '#D1FAE5', text: '#065F46' },
+  dispatched: { bg: '#EDE9FE', text: '#5B21B6' },
+  confirmed:  { bg: '#DBEAFE', text: '#1E40AF' },
+  cancelled:  { bg: '#FEE2E2', text: '#991B1B' },
+};
+
+function formatCurrency(amount: number, currency: string) {
   if (currency === 'NGN') return `₦${amount.toLocaleString()}`;
-  return `${currency} ${amount.toLocaleString()}`;
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
 }
 
-export default function CartScreen() {
+export default function MyOrdersScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user } = useAuth();
+  const { colorScheme } = useTheme();
+  const isDark = colorScheme === 'dark';
 
-  const { data: cart, isLoading } = useGetCart();
-  const { mutateAsync: removeItem } = useRemoveCartItem();
-  const { mutateAsync: addItem } = useAddCartItem();
-  const { mutateAsync: clearCart } = useClearCart();
-
-  const [removingId, setRemovingId] = useState<number | null>(null);
+  const { data: orders, isLoading } = useListOrders();
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  // Extra bottom = tab bar height + safe area
   const bottomPad = TAB_BAR_H + (Platform.OS === 'ios' ? insets.bottom : 16);
 
-  const items = cart?.items ?? [];
-  const subtotal = cart?.subtotal ?? 0;
-  const currency = cart?.currency ?? 'NGN';
-
-  const handleRemove = async (productId: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setRemovingId(productId);
-    try {
-      await removeItem({ productId });
-    } finally {
-      setRemovingId(null);
-    }
-  };
-
-  const handleIncrement = async (productId: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await addItem({ data: { productId, quantity: 1 } });
-  };
-
-  const handleClear = async () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    await clearCart({});
-  };
+  const bg = isDark ? BG_DARK : BG;
+  const cardBg = isDark ? '#1A1528' : WHITE;
+  const textDark = isDark ? TEXT_DARK_D : TEXT_DARK;
+  const border = isDark ? BORDER_DARK : BORDER;
+  const headerBg = isDark ? '#1A1528' : WHITE;
 
   /* ── Loading ── */
   if (isLoading) {
     return (
-      <View style={[st.centered, { backgroundColor: BG }]}>
+      <View style={[st.centered, { backgroundColor: bg }]}>
         <ActivityIndicator size="large" color={PURPLE} />
       </View>
     );
   }
 
-  /* ── Empty state ── */
-  if (items.length === 0) {
+  /* ── Empty ── */
+  if (!orders || orders.length === 0) {
     return (
-      <View style={[st.centered, { backgroundColor: BG, paddingTop: topPad, paddingBottom: bottomPad }]}>
-        <View style={st.emptyIconWrap}>
-          <Feather name="shopping-cart" size={32} color={PURPLE} />
+      <View style={[st.centered, { backgroundColor: bg, paddingTop: topPad, paddingBottom: bottomPad }]}>
+        <View style={[st.emptyIcon, { backgroundColor: isDark ? '#2D1F5E' : PURPLE_LIGHT }]}>
+          <Feather name="package" size={32} color={isDark ? '#A78BFA' : PURPLE} />
         </View>
-        <Text style={st.emptyTitle}>Your cart is empty</Text>
-        <Text style={st.emptySub}>Browse products and add something you love</Text>
-        <TouchableOpacity
-          style={st.shopBtn}
-          onPress={() => router.push('/(tabs)/search')}
-          activeOpacity={0.85}
-        >
+        <Text style={[st.emptyTitle, { color: textDark }]}>No orders yet</Text>
+        <Text style={[st.emptySub, { color: TEXT_MUTED }]}>Your placed orders will appear here</Text>
+        <TouchableOpacity style={st.shopBtn} onPress={() => router.push('/(tabs)/search')} activeOpacity={0.85}>
           <Feather name="search" size={16} color={WHITE} />
           <Text style={st.shopBtnText}>Start Shopping</Text>
         </TouchableOpacity>
@@ -106,95 +95,78 @@ export default function CartScreen() {
     );
   }
 
-  /* ── Cart list ── */
   return (
-    <View style={[st.root, { backgroundColor: BG }]}>
+    <View style={[st.root, { backgroundColor: bg }]}>
       {/* Header */}
-      <View style={[st.header, { paddingTop: topPad + 12 }]}>
-        <Text style={st.headerTitle}>My Cart</Text>
-        <TouchableOpacity onPress={handleClear} style={st.clearBtn}>
-          <Feather name="trash-2" size={15} color={RED} />
-          <Text style={st.clearText}>Clear</Text>
-        </TouchableOpacity>
+      <View style={[st.header, { paddingTop: topPad + 12, backgroundColor: PURPLE }]}>
+        <Text style={st.headerTitle}>My Orders</Text>
+        <Text style={st.headerSub}>{orders.length} order{orders.length !== 1 ? 's' : ''}</Text>
       </View>
 
-      {/* Items list */}
+      {/* Orders list */}
       <FlatList
-        data={items}
-        keyExtractor={(item) => String(item.productId)}
-        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: bottomPad + 120 }}
+        data={orders as unknown as Order[]}
+        keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: bottomPad + 40 }}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <View style={st.card}>
-            <Image
-              source={{ uri: item.product.imageUrl }}
-              style={st.img}
-              resizeMode="cover"
-            />
-            <View style={st.info}>
-              <Text style={st.itemName} numberOfLines={2}>{item.product.name}</Text>
-              <Text style={st.itemPrice}>
-                {formatPrice(item.product.price, item.product.currency)}
-              </Text>
-              {/* Qty controls */}
-              <View style={st.qtyRow}>
-                <TouchableOpacity
-                  style={[st.qtyBtn, item.quantity === 1 && st.qtyBtnDestructive]}
-                  onPress={() => handleRemove(item.productId)}
-                  disabled={removingId === item.productId}
-                >
-                  {removingId === item.productId ? (
-                    <ActivityIndicator size="small" color={TEXT_MUTED} />
-                  ) : (
-                    <Feather
-                      name={item.quantity === 1 ? 'trash-2' : 'minus'}
-                      size={14}
-                      color={item.quantity === 1 ? RED : TEXT_DARK}
-                    />
-                  )}
-                </TouchableOpacity>
-                <Text style={st.qtyNum}>{item.quantity}</Text>
-                <TouchableOpacity
-                  style={st.qtyBtn}
-                  onPress={() => handleIncrement(item.productId)}
-                >
-                  <Feather name="plus" size={14} color={TEXT_DARK} />
-                </TouchableOpacity>
-                {/* Line total */}
-                <Text style={st.lineTotal}>
-                  {formatPrice(item.product.price * item.quantity, item.product.currency)}
-                </Text>
+        renderItem={({ item }) => {
+          const statusStyle = STATUS_COLORS[item.status] ?? { bg: '#EDE9FE', text: PURPLE };
+          return (
+            <TouchableOpacity
+              style={[st.card, { backgroundColor: cardBg, borderColor: border }]}
+              onPress={() => router.push(`/order/${item.id}` as any)}
+              activeOpacity={0.85}
+            >
+              {/* Top row: date + status */}
+              <View style={st.cardTop}>
+                <View>
+                  <Text style={[st.orderDate, { color: TEXT_MUTED }]}>
+                    {format(new Date(item.createdAt), 'MMM d, yyyy')}
+                  </Text>
+                  <Text style={[st.trackCode, { color: textDark }]} numberOfLines={1}>#{item.trackingCode}</Text>
+                </View>
+                <View style={[st.statusBadge, { backgroundColor: statusStyle.bg }]}>
+                  <Text style={[st.statusText, { color: statusStyle.text }]}>{item.status}</Text>
+                </View>
               </View>
-            </View>
-          </View>
-        )}
-      />
 
-      {/* Sticky footer */}
-      <View style={[st.footer, { paddingBottom: (Platform.OS === 'ios' ? insets.bottom : 16) + 8 }]}>
-        <View style={st.totalRow}>
-          <Text style={st.totalLabel}>Subtotal</Text>
-          <Text style={st.totalAmount}>{formatPrice(subtotal, currency)}</Text>
-        </View>
-        <Text style={st.totalHint}>Shipping & taxes calculated at checkout</Text>
-        <TouchableOpacity
-          style={st.checkoutBtn}
-          activeOpacity={0.88}
-          onPress={() => {
-            if (!user) {
-              router.push('/(tabs)/account');
-            } else {
-              router.push('/checkout');
-            }
-          }}
-        >
-          <Feather name="lock" size={16} color={WHITE} />
-          <Text style={st.checkoutText}>
-            {user ? 'Proceed to Checkout' : 'Sign in to Checkout'}
-          </Text>
-          <Feather name="arrow-right" size={16} color={WHITE} />
-        </TouchableOpacity>
-      </View>
+              {/* Product thumbnails */}
+              <View style={st.thumbsRow}>
+                {item.items.slice(0, 4).map((oi, i) => (
+                  <View key={i} style={[st.thumb, { borderColor: border }]}>
+                    {oi.imageUrl ? (
+                      <Image source={{ uri: oi.imageUrl }} style={st.thumbImg} resizeMode="cover" />
+                    ) : (
+                      <Feather name="box" size={20} color={TEXT_MUTED} />
+                    )}
+                    {oi.quantity > 1 && (
+                      <View style={st.qtyBadge}>
+                        <Text style={st.qtyBadgeText}>×{oi.quantity}</Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+                {item.items.length > 4 && (
+                  <View style={[st.thumb, st.moreBadge, { backgroundColor: isDark ? '#2D2550' : '#F3F0FF', borderColor: border }]}>
+                    <Text style={[st.moreText, { color: isDark ? '#A78BFA' : PURPLE }]}>+{item.items.length - 4}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Footer: total + arrow */}
+              <View style={[st.cardFooter, { borderTopColor: border }]}>
+                <Text style={[st.totalLabel, { color: TEXT_MUTED }]}>Total</Text>
+                <Text style={[st.totalAmount, { color: isDark ? '#A78BFA' : PURPLE }]}>{formatCurrency(item.total, item.currency)}</Text>
+                <View style={{ flex: 1 }} />
+                <View style={[st.viewBtn, { backgroundColor: isDark ? '#2D1F5E' : PURPLE_LIGHT }]}>
+                  <Text style={[st.viewBtnText, { color: isDark ? '#A78BFA' : PURPLE_DARK }]}>View</Text>
+                  <Feather name="chevron-right" size={14} color={isDark ? '#A78BFA' : PURPLE_DARK} />
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+      />
     </View>
   );
 }
@@ -203,102 +175,69 @@ const st = StyleSheet.create({
   root: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32 },
 
-  /* Header */
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 14,
-    backgroundColor: WHITE,
-    borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+    paddingBottom: 18,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    marginBottom: 4,
   },
-  headerTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: TEXT_DARK },
-  clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  clearText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: RED },
+  headerTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: WHITE },
+  headerSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.7)', marginTop: 2 },
 
-  /* Cart item card */
   card: {
-    flexDirection: 'row',
-    backgroundColor: WHITE,
     borderRadius: 16,
-    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: BORDER,
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  img: { width: 96, height: 96 },
-  info: { flex: 1, padding: 12, gap: 4, justifyContent: 'center' },
-  itemName: { fontSize: 13, fontFamily: 'Inter_500Medium', color: TEXT_DARK, lineHeight: 18 },
-  itemPrice: { fontSize: 15, fontFamily: 'Inter_700Bold', color: PURPLE },
-
-  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
-  qtyBtn: {
-    width: 30, height: 30, borderRadius: 10,
-    borderWidth: 1, borderColor: BORDER,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: BG,
-  },
-  qtyBtnDestructive: { borderColor: '#FEE2E2', backgroundColor: '#FFF5F5' },
-  qtyNum: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: TEXT_DARK, minWidth: 24, textAlign: 'center' },
-  lineTotal: { marginLeft: 'auto' as any, fontSize: 13, fontFamily: 'Inter_600SemiBold', color: TEXT_MUTED },
-
-  /* Footer */
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: WHITE,
-    borderTopWidth: 1,
-    borderTopColor: BORDER,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  totalLabel: { fontSize: 14, fontFamily: 'Inter_400Regular', color: TEXT_MUTED },
-  totalAmount: { fontSize: 22, fontFamily: 'Inter_700Bold', color: TEXT_DARK },
-  totalHint: { fontSize: 11, fontFamily: 'Inter_400Regular', color: TEXT_MUTED, marginTop: -4 },
-  checkoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: PURPLE,
-    borderRadius: 16,
-    paddingVertical: 16,
+    overflow: 'hidden',
     shadowColor: PURPLE,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
   },
-  checkoutText: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: WHITE, flex: 1, textAlign: 'center' },
+  cardTop: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    padding: 14, paddingBottom: 10,
+  },
+  orderDate: { fontSize: 11, fontFamily: 'Inter_400Regular', marginBottom: 3 },
+  trackCode: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  statusBadge: { borderRadius: 100, paddingHorizontal: 10, paddingVertical: 4 },
+  statusText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', textTransform: 'capitalize' },
 
-  /* Empty state */
-  emptyIconWrap: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: PURPLE_LIGHT,
+  thumbsRow: { flexDirection: 'row', paddingHorizontal: 14, paddingBottom: 12, gap: 8 },
+  thumb: {
+    width: 56, height: 56, borderRadius: 12,
+    borderWidth: 1, overflow: 'hidden',
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 12,
+    backgroundColor: '#F8F7FF',
+    position: 'relative',
   },
-  emptyTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: TEXT_DARK, textAlign: 'center' },
-  emptySub: { fontSize: 14, fontFamily: 'Inter_400Regular', color: TEXT_MUTED, textAlign: 'center', lineHeight: 20 },
-  shopBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: PURPLE, paddingHorizontal: 28, paddingVertical: 14,
-    borderRadius: 100, marginTop: 8,
+  thumbImg: { width: '100%', height: '100%' },
+  qtyBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderTopLeftRadius: 6,
+    paddingHorizontal: 4, paddingVertical: 2,
   },
+  qtyBadgeText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: WHITE },
+  moreBadge: { alignItems: 'center', justifyContent: 'center' },
+  moreText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+
+  cardFooter: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  totalLabel: { fontSize: 12, fontFamily: 'Inter_400Regular', marginRight: 4 },
+  totalAmount: { fontSize: 16, fontFamily: 'Inter_700Bold' },
+  viewBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100,
+  },
+  viewBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+
+  emptyIcon: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  emptyTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', textAlign: 'center' },
+  emptySub: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20 },
+  shopBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: PURPLE, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 100, marginTop: 8 },
   shopBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: WHITE },
 });
