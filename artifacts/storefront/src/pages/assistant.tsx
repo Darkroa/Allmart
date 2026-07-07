@@ -7,46 +7,20 @@ import {
   getGetCartQueryKey, 
   getListOrdersQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
-import { Send, Trash2, Bot, User, Check, X, Package, Zap } from "lucide-react";
+import { Send, Trash2, Bot, User, Check, X, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
-
-type ProviderInfo = { name: string; label: string; model: string };
 
 type TurnState = {
   needsConfirmation?: boolean;
   needsShippingAddress?: boolean;
   placedOrder?: any;
-  provider?: ProviderInfo;
 };
-
-const PROVIDER_COLORS: Record<string, string> = {
-  groq:   "bg-orange-500/10 text-orange-600 border-orange-500/20",
-  github: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-  nvidia: "bg-green-500/10 text-green-600 border-green-500/20",
-  openai: "bg-violet-500/10 text-violet-600 border-violet-500/20",
-};
-
-function ProviderBadge({ provider, className = "" }: { provider: ProviderInfo; className?: string }) {
-  const color = PROVIDER_COLORS[provider.name] ?? "bg-muted text-muted-foreground border-border";
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${color} ${className}`}>
-      <Zap className="h-2.5 w-2.5" />
-      {provider.label} · {provider.model}
-    </span>
-  );
-}
-
-async function fetchProviders(): Promise<ProviderInfo[]> {
-  const res = await fetch("/api/chat/providers");
-  if (!res.ok) return [];
-  return res.json();
-}
 
 export default function Assistant() {
   const queryClient = useQueryClient();
@@ -57,14 +31,7 @@ export default function Assistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { data: messages, isLoading } = useListChatMessages();
-  const { data: providers = [] } = useQuery<ProviderInfo[]>({
-    queryKey: ["chat-providers"],
-    queryFn: fetchProviders,
-    staleTime: 60_000,
-  });
 
-  const activeProvider = providers[0] ?? null;
-  
   const sendChat = useSendChatMessage({
     mutation: {
       onSuccess: (data: any) => {
@@ -79,7 +46,6 @@ export default function Assistant() {
               needsConfirmation: data.needsConfirmation,
               needsShippingAddress: data.needsShippingAddress,
               placedOrder: data.placedOrder,
-              provider: data.provider ?? undefined,
             }
           }));
         }
@@ -163,30 +129,11 @@ export default function Assistant() {
           </div>
           <div>
             <h1 className="font-serif font-bold text-lg leading-tight">AI Assistant</h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              {activeProvider ? (
-                <ProviderBadge provider={activeProvider} />
-              ) : (
-                <span className="text-xs text-muted-foreground">Always here to help you shop</span>
-              )}
-            </div>
+            <p className="text-xs text-muted-foreground">Always here to help you shop</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Provider switcher pills */}
-          {providers.length > 1 && (
-            <div className="hidden sm:flex items-center gap-1.5">
-              {providers.map((p) => (
-                <span
-                  key={p.name}
-                  className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${PROVIDER_COLORS[p.name] ?? "bg-muted text-muted-foreground"}`}
-                >
-                  {p.label}
-                </span>
-              ))}
-            </div>
-          )}
           <Button 
             variant="ghost" 
             size="sm" 
@@ -224,9 +171,6 @@ export default function Assistant() {
             </div>
             <h2 className="text-xl font-serif font-bold text-foreground">How can I help you today?</h2>
             <p className="max-w-sm">I can find products, add them to your cart, and place orders for you.</p>
-            {activeProvider && (
-              <ProviderBadge provider={activeProvider} className="mt-2" />
-            )}
           </div>
         ) : (
           messages?.map((msg) => {
