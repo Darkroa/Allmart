@@ -6,13 +6,105 @@ import {
   signUp,
   getGetCurrentUserQueryKey,
 } from "@workspace/api-client-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Sparkles, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type Mode = "signin" | "signup" | "forgot";
+
+// Design tokens matching the lavender theme
+const PURPLE = "#8B7BD8";
+const LAVENDER_BG = "#EDE8F8";
+const CARD_BG = "#FAF9FF";
+const ROSE_GOLD = "#C9956A";
+const TEXT_DARK = "#2D2248";
+const TEXT_MUTED = "#9B93B8";
+const WHITE = "#FFFFFF";
+const HEART_PINK = "#F08080";
+
+function BagLogo() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
+      {/* Handle */}
+      <div style={{ display: "flex", gap: 20, marginBottom: -2, position: "relative", zIndex: 1 }}>
+        <div style={{
+          width: 18, height: 22,
+          borderTop: `4px solid ${ROSE_GOLD}`,
+          borderLeft: `4px solid ${ROSE_GOLD}`,
+          borderRadius: "8px 0 0 0",
+        }} />
+        <div style={{
+          width: 18, height: 22,
+          borderTop: `4px solid ${ROSE_GOLD}`,
+          borderRight: `4px solid ${ROSE_GOLD}`,
+          borderRadius: "0 8px 0 0",
+        }} />
+      </div>
+      {/* Bag body */}
+      <div style={{
+        width: 90,
+        height: 88,
+        borderRadius: 18,
+        background: `linear-gradient(145deg, ${ROSE_GOLD}, #B07A55)`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: "0 12px 32px rgba(139,94,60,0.35)",
+        position: "relative",
+        zIndex: 2,
+      }}>
+        <span style={{
+          fontSize: 42,
+          fontWeight: 800,
+          color: WHITE,
+          fontFamily: "sans-serif",
+          letterSpacing: -2,
+          lineHeight: 1,
+        }}>A</span>
+      </div>
+    </div>
+  );
+}
+
+function IconCircle({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      width: 38,
+      height: 38,
+      borderRadius: "50%",
+      backgroundColor: PURPLE,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function SocialBtn({ children }: { children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      style={{
+        width: 52,
+        height: 52,
+        borderRadius: "50%",
+        backgroundColor: WHITE,
+        border: "none",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: "0 2px 10px rgba(176,160,208,0.20)",
+        cursor: "pointer",
+        fontSize: 20,
+        fontWeight: 700,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function Account() {
   const [, setLocation] = useLocation();
@@ -91,7 +183,6 @@ export default function Account() {
         queryKey: getGetCurrentUserQueryKey(),
       });
       if (mode === "signup") {
-        // New accounts need email verification
         setLocation("/verify-email");
         return;
       }
@@ -113,177 +204,337 @@ export default function Account() {
   const isForgot = mode === "forgot";
 
   return (
-    <div className="flex flex-1 items-center justify-center px-6 py-16">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Sparkles className="h-5 w-5 text-primary" />
-          </div>
-          <h1 className="font-serif text-4xl font-bold tracking-tight">
-            {isForgot ? "Reset password" : isSignIn ? "Welcome back" : "Create your account"}
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            {isForgot
-              ? "We'll email you a code to reset your password."
-              : isSignIn
-              ? "Sign in to pick up where you left off."
-              : "Save your orders and let the assistant remember you."}
-          </p>
-        </div>
+    <div
+      style={{
+        minHeight: "100%",
+        backgroundColor: LAVENDER_BG,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "48px 24px",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: 420 }}>
 
-        <div className="rounded-2xl border border-border/60 bg-card p-2 shadow-sm">
-          {!isForgot && (
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/40 p-1 mb-4">
+        {/* Heart */}
+        <div style={{ textAlign: "center", fontSize: 28, color: HEART_PINK, marginBottom: 8 }}>♥</div>
+
+        {/* Heading */}
+        <h1 style={{
+          textAlign: "center",
+          fontSize: 32,
+          fontWeight: 800,
+          color: TEXT_DARK,
+          margin: 0,
+          marginBottom: 8,
+          fontFamily: "inherit",
+        }}>
+          {isForgot ? "Reset Password" : isSignIn ? "Welcome Back" : "Create Account"}
+        </h1>
+        <p style={{
+          textAlign: "center",
+          color: TEXT_MUTED,
+          fontSize: 14,
+          margin: "0 0 24px",
+        }}>
+          {isForgot
+            ? "We'll email you a reset code"
+            : isSignIn
+            ? "Login to continue your journey"
+            : "Join AllMart today"}
+        </p>
+
+        {/* Bag logo */}
+        {!isForgot && (
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
+            <BagLogo />
+          </div>
+        )}
+
+        {/* Card */}
+        <div style={{
+          backgroundColor: CARD_BG,
+          borderRadius: 28,
+          padding: "28px 24px 24px",
+          boxShadow: "0 8px 32px rgba(123,107,160,0.12)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+        }}>
+
+          {/* Forgot — success state */}
+          {isForgot && forgotSent ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, textAlign: "center" }}>
+              <div style={{
+                borderRadius: 12,
+                border: "1px solid #6ee7b7",
+                backgroundColor: "#ecfdf5",
+                padding: "16px 16px",
+                fontSize: 14,
+                color: "#065f46",
+              }}>
+                <p style={{ fontWeight: 700, margin: 0, marginBottom: 4 }}>Check your inbox</p>
+                <p style={{ margin: 0 }}>If an account exists for <strong>{email}</strong>, we've sent a reset code.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLocation("/reset-password")}
+                style={{
+                  backgroundColor: PURPLE,
+                  color: WHITE,
+                  border: "none",
+                  borderRadius: 50,
+                  padding: "14px 0",
+                  fontSize: 16,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  boxShadow: `0 6px 16px ${PURPLE}55`,
+                }}
+              >
+                Enter reset code
+              </button>
               <button
                 type="button"
                 onClick={() => switchMode("signin")}
-                className={`rounded-lg py-2 text-sm font-medium transition-colors ${
-                  isSignIn
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                style={{ background: "none", border: "none", color: TEXT_MUTED, fontSize: 13, cursor: "pointer" }}
               >
-                Sign in
-              </button>
-              <button
-                type="button"
-                onClick={() => switchMode("signup")}
-                className={`rounded-lg py-2 text-sm font-medium transition-colors ${
-                  !isSignIn
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Sign up
-              </button>
-            </div>
-          )}
-
-          {isForgot && forgotSent ? (
-            <div className="px-6 pb-6 pt-4 space-y-4 text-center">
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-800">
-                <p className="font-semibold mb-1">Check your inbox</p>
-                <p>If an account exists for <strong>{email}</strong>, we've sent a password reset code.</p>
-              </div>
-              <Button variant="outline" className="w-full" onClick={() => setLocation("/reset-password")}>
-                Enter reset code
-              </Button>
-              <button type="button" className="text-sm text-muted-foreground hover:text-foreground" onClick={() => switchMode("signin")}>
                 Back to sign in
               </button>
             </div>
           ) : (
-            <form onSubmit={onSubmit} className="space-y-5 px-6 pb-6 pt-2">
+            <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+              {/* Name field (sign up only) */}
               {!isSignIn && !isForgot && (
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  backgroundColor: WHITE,
+                  borderRadius: 14,
+                  padding: "4px 14px 4px 6px",
+                  boxShadow: "0 2px 8px rgba(176,160,208,0.12)",
+                }}>
+                  <IconCircle>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  </IconCircle>
+                  <input
                     type="text"
                     autoComplete="name"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
+                    placeholder="Full Name"
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      outline: "none",
+                      background: "transparent",
+                      fontSize: 15,
+                      color: TEXT_DARK,
+                      padding: "12px 0",
+                    }}
                   />
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
+              {/* Email field */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                backgroundColor: WHITE,
+                borderRadius: 14,
+                padding: "4px 14px 4px 6px",
+                boxShadow: "0 2px 8px rgba(176,160,208,0.12)",
+              }}>
+                <IconCircle>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </IconCircle>
+                <input
                   type="email"
                   autoComplete="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="yourmail@gmail.com"
+                  placeholder="Email or Username"
+                  style={{
+                    flex: 1,
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    fontSize: 15,
+                    color: TEXT_DARK,
+                    padding: "12px 0",
+                  }}
                 />
               </div>
 
+              {/* Password field */}
               {!isForgot && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    {isSignIn && (
-                      <button
-                        type="button"
-                        onClick={() => switchMode("forgot")}
-                        className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        Forgot password?
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete={isSignIn ? "current-password" : "new-password"}
-                      required
-                      minLength={isSignIn ? 1 : 6}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder={isSignIn ? "••••••••" : "At least 6 characters"}
-                      className="pr-10"
-                    />
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition-colors"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  backgroundColor: WHITE,
+                  borderRadius: 14,
+                  padding: "4px 14px 4px 6px",
+                  boxShadow: "0 2px 8px rgba(176,160,208,0.12)",
+                }}>
+                  <IconCircle>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                  </IconCircle>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    autoComplete={isSignIn ? "current-password" : "new-password"}
+                    required
+                    minLength={isSignIn ? 1 : 6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Password"
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      outline: "none",
+                      background: "transparent",
+                      fontSize: 15,
+                      color: TEXT_DARK,
+                      padding: "12px 0",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowPassword((v) => !v)}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: TEXT_MUTED, display: "flex", alignItems: "center" }}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
               )}
 
+              {/* Forgot password link */}
+              {isSignIn && (
+                <div style={{ textAlign: "right", marginTop: -6 }}>
+                  <button
+                    type="button"
+                    onClick={() => switchMode("forgot")}
+                    style={{ background: "none", border: "none", color: PURPLE, fontSize: 13, fontWeight: 500, cursor: "pointer" }}
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              )}
+
+              {/* Error */}
               {error && (
-                <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                <div style={{
+                  borderRadius: 10,
+                  border: "1px solid rgba(224,85,85,0.3)",
+                  backgroundColor: "rgba(224,85,85,0.07)",
+                  padding: "10px 14px",
+                  fontSize: 13,
+                  color: "#E05555",
+                }}>
                   {error}
                 </div>
               )}
 
-              <Button
+              {/* Submit button */}
+              <button
                 type="submit"
-                className="w-full h-11 text-base"
                 disabled={submitting}
+                style={{
+                  backgroundColor: PURPLE,
+                  color: WHITE,
+                  border: "none",
+                  borderRadius: 50,
+                  padding: "16px 0",
+                  fontSize: 17,
+                  fontWeight: 700,
+                  cursor: submitting ? "not-allowed" : "pointer",
+                  opacity: submitting ? 0.75 : 1,
+                  boxShadow: `0 6px 20px ${PURPLE}55`,
+                  marginTop: 2,
+                }}
               >
                 {submitting
-                  ? isForgot
-                    ? "Sending…"
-                    : isSignIn
-                    ? "Signing in…"
-                    : "Creating account…"
-                  : isForgot
-                  ? "Send reset code"
-                  : isSignIn
-                  ? "Sign in"
-                  : "Create account"}
-              </Button>
+                  ? isForgot ? "Sending…" : isSignIn ? "Signing in…" : "Creating account…"
+                  : isForgot ? "Send Reset Code"
+                  : isSignIn ? "Login"
+                  : "Create Account"}
+              </button>
 
               {isForgot && (
                 <button
                   type="button"
-                  className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
                   onClick={() => switchMode("signin")}
+                  style={{ background: "none", border: "none", color: TEXT_MUTED, fontSize: 13, cursor: "pointer", textAlign: "center" }}
                 >
                   Back to sign in
                 </button>
+              )}
+
+              {/* Social login — only on sign in / sign up */}
+              {!isForgot && (
+                <>
+                  {/* Divider */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0" }}>
+                    <div style={{ flex: 1, height: 1, backgroundColor: "#E0D8F0" }} />
+                    <span style={{ color: TEXT_MUTED, fontSize: 12 }}>or continue with</span>
+                    <div style={{ flex: 1, height: 1, backgroundColor: "#E0D8F0" }} />
+                  </div>
+
+                  {/* Social buttons */}
+                  <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
+                    <SocialBtn>
+                      <span style={{ color: "#EA4335", fontWeight: 700, fontSize: 20 }}>G</span>
+                    </SocialBtn>
+                    <SocialBtn>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                      </svg>
+                    </SocialBtn>
+                    <SocialBtn>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#1877F2">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                    </SocialBtn>
+                  </div>
+
+                  {/* Switch mode */}
+                  <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 2, fontSize: 13 }}>
+                    <span style={{ color: TEXT_MUTED }}>
+                      {isSignIn ? "Don't have an account?" : "Already have an account?"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => switchMode(isSignIn ? "signup" : "signin")}
+                      style={{ background: "none", border: "none", color: PURPLE, fontWeight: 700, cursor: "pointer", fontSize: 13, padding: 0 }}
+                    >
+                      {isSignIn ? "Sign Up" : "Sign In"}
+                    </button>
+                  </div>
+                </>
               )}
             </form>
           )}
         </div>
 
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          By continuing you agree to our (Allmart T&C){" "}
-          <Link href="/" className="underline hover:text-primary">
-            terms
-          </Link>
-          .
+        {/* Terms */}
+        <p style={{ textAlign: "center", fontSize: 11, color: TEXT_MUTED, marginTop: 16 }}>
+          By continuing you agree to AllMart's{" "}
+          <Link href="/" style={{ color: PURPLE, textDecoration: "underline" }}>terms</Link>.
         </p>
       </div>
     </div>
