@@ -19,6 +19,8 @@ import {
   UserCog,
   Lock,
   Users,
+  Bell,
+  LifeBuoy,
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -87,7 +89,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {/* Primary nav */}
           <nav className="flex items-center gap-0.5">
             {navLink("/products", <Store className="h-4 w-4 shrink-0" />, "Shop")}
-            {navLink("/orders", <Package className="h-4 w-4 shrink-0" />, "Orders")}
+            {me && navLink("/orders", <Package className="h-4 w-4 shrink-0" />, "Orders")}
           </nav>
 
           {/* Spacer */}
@@ -124,6 +126,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       <DropdownMenuItem asChild>
                         <Link href="/security" className="flex items-center gap-2 cursor-pointer">
                           <Lock className="h-4 w-4" /> Security
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/notifications" className="flex items-center gap-2 cursor-pointer">
+                          <Bell className="h-4 w-4" /> Notifications
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/support" className="flex items-center gap-2 cursor-pointer">
+                          <LifeBuoy className="h-4 w-4" /> Support
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />

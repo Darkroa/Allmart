@@ -19,7 +19,9 @@ export default function ProductDetail() {
   const [activeIdx, setActiveIdx] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
 
-  const id = Number(params?.slug?.match(/-(\d+)$/)?.[1]);
+  // Handles both "/products/42" (bare ID from AI cards) and "/products/name-42" (slug)
+  const rawParam = params?.slug ?? "";
+  const id = Number(rawParam.match(/-(\d+)$/)?.[1] ?? rawParam);
   const { data: product, isLoading } = useGetProduct(id);
 
   const addCartItem = useAddCartItem({
@@ -68,7 +70,7 @@ export default function ProductDetail() {
   }
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+    new Intl.NumberFormat("en-NG", { style: "currency", currency: product.currency ?? "NGN" }).format(n);
 
   const isOutOfStock = product.stock <= 0;
   const hasDiscount = product.originalPrice != null && (product.originalPrice as number) > product.price;
