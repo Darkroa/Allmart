@@ -1,9 +1,11 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import Stripe from "stripe";
 import {
   db,
   chatMessagesTable,
   productsTable,
   cartItemsTable,
+  settingsTable,
 } from "@workspace/db";
 import { and, eq, desc, asc, ilike, or, inArray, sql } from "drizzle-orm";
 import { SendChatMessageBody } from "@workspace/api-zod";
@@ -25,14 +27,14 @@ const router: IRouter = Router();
 
 const SYSTEM_PROMPT = `You are the AllMart shopping concierge — warm, concise, and helpful.
 
-You help shoppers discover products and, when they're ready, place orders for them.
+You help shoppers discover products and, when they're ready, place orders for them entirely within this chat.
 Always display prices using standard international symbols: $ for USD, € for EUR, £ for GBP. Never use ₦ or Naira in your responses.
 
 Tools you can use:
 - search_products: find products that match a shopper's need.
 - get_all_products: list all available products (use when the shopper wants to browse or asks what's available).
 - add_to_cart: add a specific product to the shopper's cart.
-- place_order: finalize the current cart into an order. NEVER call this without the shopper's explicit confirmation.
+- place_order: finalize the current cart into an order. NEVER call this without the shopper's explicit confirmation AND a chosen payment method.
 
 Behavior rules:
 - If the shopper greets you with no product mention, ask warmly what they're looking for today.
@@ -41,7 +43,8 @@ Behavior rules:
 - If search_products returns nothing, try get_all_products and suggest what's available.
 - When they say "add it" / "I'll take it" / pick a specific item, call add_to_cart, then ask if they'd like to keep shopping or check out.
 - When they ask to buy / checkout / "place the order": if you have NOT yet received their explicit confirmation in this turn, summarize the cart and ask "Confirm purchase?" — do not call place_order yet.
-- Only call place_order when the user clearly confirms (e.g. "yes confirm", "go ahead", or the system tells you confirmOrder=true). After ordering, congratulate them and mention the tracking code.
+- Only call place_order when the user clearly confirms (e.g. "yes confirm", "go ahead", or the system tells you confirmOrder=true AND paymentMethod is set).
+- After ordering with bank_transfer, tell the shopper the bank details are shown below and they should send the exact amount. After pay_on_delivery, congratulate them. After stripe, tell them to click the payment button below.
 - Keep responses to 1-3 short sentences.`;
 
 // ---------------------------------------------------------------------------
@@ -215,7 +218,7 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
     res.status(400).json({ error: "Invalid body" });
     return;
   }
-  const { content, confirmOrder, shippingAddress } = parsed.data;
+  const { content, confirmOrder, shippingAddress, paymentMethod } = parsed.data;
   const sessionId = req.sessionId;
 
   const [userRow] = await db
@@ -237,6 +240,7 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
       : cart.items
           .map((i) => `${i.quantity}x ${i.product.name} (${i.product.price})`)
           .join(", ") + ` — subtotal ${cart.subtotal}`;
+  const cartTotal = cart.subtotal;
 
   type MessageParam = {
     role: "system" | "user" | "assistant" | "tool";
@@ -249,7 +253,7 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
     { role: "system", content: SYSTEM_PROMPT },
     {
       role: "system",
-      content: `Current cart: ${cartSummary}. confirmOrder=${confirmOrder ? "true" : "false"}. shippingAddress=${shippingAddress ?? "(none provided)"}`,
+      content: `Current cart: ${cartSummary}. confirmOrder=${confirmOrder ? "true" : "false"}. shippingAddress=${shippingAddress ?? "(none provided)"}. paymentMethod=${paymentMethod ?? "(none chosen)"}`,
     },
     ...history.map((m) => ({
       role: m.role as "user" | "assistant",
@@ -262,6 +266,8 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
   let placedOrderId: number | null = null;
   let needsShippingAddress = false;
   let needsConfirmation = false;
+  let stripeCheckoutUrl: string | null = null;
+  let bankDetails: Record<string, string> | null = null;
   let assistantText = "";
   let usedProvider: Provider | null = null;
 
@@ -415,7 +421,7 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
             tool_call_id: call.id,
             content: JSON.stringify({
               status: "awaiting_confirmation",
-              note: "Summarize the cart and ask the shopper to confirm before placing the order.",
+              note: "Summarize the cart, ask the shopper to confirm and choose a payment method (stripe / bank_transfer / pay_on_delivery).",
             }),
           });
         } else if (!shippingAddress) {
@@ -425,7 +431,99 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
             tool_call_id: call.id,
             content: JSON.stringify({ status: "awaiting_shipping_address" }),
           });
+        } else if (paymentMethod === "stripe") {
+          // Create a Stripe checkout session; order is placed after payment via /stripe/verify
+          if (!process.env.STRIPE_SECRET_KEY) {
+            messages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: JSON.stringify({ error: "Stripe is not configured on this server" }),
+            });
+          } else {
+            try {
+              const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+              // Recompute cart total fresh at placement time (cart may have changed during tool loop)
+              const freshCart = await buildCart(sessionId);
+              const freshTotal = freshCart.subtotal;
+              if (freshTotal <= 0) {
+                messages.push({
+                  role: "tool",
+                  tool_call_id: call.id,
+                  content: JSON.stringify({ error: "Cart is empty or total is zero" }),
+                });
+                break;
+              }
+              const host = req.get("host") ?? "localhost";
+              const proto = req.get("x-forwarded-proto") ?? req.protocol ?? "https";
+              const origin = `${proto}://${host}`;
+              const callbackUrl = `${origin}/payment-callback`;
+              const session = await stripe.checkout.sessions.create({
+                payment_method_types: ["card"],
+                mode: "payment",
+                line_items: [
+                  {
+                    price_data: {
+                      currency: "usd",
+                      product_data: { name: "AllMart Order" },
+                      unit_amount: Math.round(freshTotal * 100),
+                    },
+                    quantity: 1,
+                  },
+                ],
+                success_url: `${callbackUrl}?session_id={CHECKOUT_SESSION_ID}`,
+                cancel_url: `${callbackUrl}?cancelled=1`,
+                // sessionId in metadata lets /stripe/verify bind back to this cart/session
+                metadata: { sessionId, shippingAddress },
+              });
+              stripeCheckoutUrl = session.url!;
+              messages.push({
+                role: "tool",
+                tool_call_id: call.id,
+                content: JSON.stringify({
+                  status: "stripe_session_created",
+                  note: "Tell the shopper to click the 'Pay with Card' button below to complete payment on Stripe. The order will be confirmed after payment.",
+                }),
+              });
+            } catch (err) {
+              messages.push({
+                role: "tool",
+                tool_call_id: call.id,
+                content: JSON.stringify({ error: `Stripe session failed: ${String(err)}` }),
+              });
+            }
+          }
+        } else if (paymentMethod === "bank_transfer") {
+          const result = await placeOrderForSession(sessionId, shippingAddress, "ai");
+          if ("error" in result) {
+            messages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: JSON.stringify({ error: result.error }),
+            });
+          } else {
+            placedOrderId = result.order.id;
+            const [bankSetting] = await db
+              .select()
+              .from(settingsTable)
+              .where(eq(settingsTable.key, "bank_details"));
+            bankDetails = bankSetting
+              ? (JSON.parse(bankSetting.value) as Record<string, string>)
+              : null;
+            messages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: JSON.stringify({
+                orderId: result.order.id,
+                trackingCode: result.order.trackingCode,
+                total: result.order.total,
+                paymentMethod: "bank_transfer",
+                bankDetails,
+                note: "Order placed. Tell the shopper the bank details are displayed below — they should transfer the exact total and reference their tracking code.",
+              }),
+            });
+          }
         } else {
+          // pay_on_delivery (or no paymentMethod — default)
           const result = await placeOrderForSession(sessionId, shippingAddress, "ai");
           if ("error" in result) {
             messages.push({
@@ -442,6 +540,7 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
                 orderId: result.order.id,
                 trackingCode: result.order.trackingCode,
                 total: result.order.total,
+                paymentMethod: "pay_on_delivery",
               }),
             });
           }
@@ -519,6 +618,8 @@ router.post("/chat/messages", async (req: Request, res: Response) => {
     placedOrder,
     needsConfirmation,
     needsShippingAddress,
+    stripeCheckoutUrl,
+    bankDetails,
     // Provider info — which LLM generated this response
     provider: usedProvider ? serializeProvider(usedProvider) : null,
   });

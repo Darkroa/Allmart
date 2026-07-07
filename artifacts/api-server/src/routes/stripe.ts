@@ -52,13 +52,13 @@ router.post("/stripe/initialize", async (req: Request, res: Response) => {
 });
 
 router.post("/stripe/verify", async (req: Request, res: Response) => {
-  const { sessionId, shippingAddress } = req.body as {
+  const { sessionId, shippingAddress: bodyShippingAddress } = req.body as {
     sessionId: string;
-    shippingAddress: string;
+    shippingAddress?: string;
   };
 
-  if (!sessionId || !shippingAddress) {
-    res.status(400).json({ error: "sessionId and shippingAddress required" });
+  if (!sessionId) {
+    res.status(400).json({ error: "sessionId required" });
     return;
   }
 
@@ -70,8 +70,24 @@ router.post("/stripe/verify", async (req: Request, res: Response) => {
       return;
     }
 
+    // shippingAddress can come from the request body (storefront flow) or
+    // from Stripe session metadata (chat flow)
+    const shippingAddress =
+      bodyShippingAddress ??
+      (session.metadata?.["shippingAddress"] as string | undefined);
+
+    if (!shippingAddress) {
+      res.status(400).json({ error: "shippingAddress required" });
+      return;
+    }
+
+    // For chat-initiated payments, bind back to the originating cart session
+    // from Stripe metadata to prevent cross-session order injection.
+    const metaSessionId = session.metadata?.["sessionId"] as string | undefined;
+    const orderSessionId = metaSessionId ?? req.sessionId;
+
     const user = await getUserFromCookie(req);
-    const placed = await placeOrderForSession(req.sessionId, shippingAddress, "user", user?.id);
+    const placed = await placeOrderForSession(orderSessionId, shippingAddress, "user", user?.id);
     if ("error" in placed) {
       res.status(400).json({ error: placed.error });
       return;

@@ -12,14 +12,27 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
-import { Send, Trash2, Bot, User, Check, X, Package } from "lucide-react";
+import { Send, Trash2, Bot, User, Check, X, Package, CreditCard, Building2, Truck, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
+import { cn } from "@/lib/utils";
+
+type PaymentMethod = "stripe" | "bank_transfer" | "pay_on_delivery";
+
+type BankDetails = {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  routingNumber?: string;
+  email?: string;
+};
 
 type TurnState = {
   needsConfirmation?: boolean;
   needsShippingAddress?: boolean;
   placedOrder?: any;
+  stripeCheckoutUrl?: string | null;
+  bankDetails?: BankDetails | null;
 };
 
 export default function Assistant() {
@@ -28,6 +41,7 @@ export default function Assistant() {
   const [, setLocation] = useLocation();
   const [content, setContent] = useState("");
   const [shippingAddress, setShippingAddress] = useState("");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>("pay_on_delivery");
   const [turnStates, setTurnStates] = useState<Record<number, TurnState>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -47,12 +61,10 @@ export default function Assistant() {
               needsConfirmation: data.needsConfirmation,
               needsShippingAddress: data.needsShippingAddress,
               placedOrder: data.placedOrder,
+              stripeCheckoutUrl: data.stripeCheckoutUrl ?? null,
+              bankDetails: data.bankDetails ?? null,
             }
           }));
-        }
-
-        if (data.placedOrder?.id) {
-          setTimeout(() => setLocation(`/orders/${data.placedOrder.id}`), 1500);
         }
       }
     }
@@ -104,11 +116,17 @@ export default function Assistant() {
       toast({ title: "Address required", description: "Please enter a valid shipping address.", variant: "destructive" });
       return;
     }
+    const paymentLabel = {
+      stripe: "Pay with card (Stripe)",
+      bank_transfer: "Bank transfer",
+      pay_on_delivery: "Pay on delivery",
+    }[selectedPaymentMethod];
     sendChat.mutate({ 
       data: { 
-        content: "Yes, please place the order.", 
+        content: `Yes, please place the order. Payment method: ${paymentLabel}.`, 
         confirmOrder: true, 
-        shippingAddress: turn?.needsShippingAddress ? shippingAddress : undefined 
+        shippingAddress: turn?.needsShippingAddress ? shippingAddress : undefined,
+        paymentMethod: selectedPaymentMethod,
       } 
     });
     setTurnStates(prev => ({
@@ -226,12 +244,13 @@ export default function Assistant() {
                   {turnState?.needsConfirmation && (
                     <Card className="mt-2 p-5 border-primary/20 bg-primary/5 w-full max-w-md space-y-4">
                       <h4 className="font-semibold text-primary flex items-center gap-2">
-                        <Package className="h-4 w-4" /> Confirm this order?
+                        <Package className="h-4 w-4" /> Confirm your order
                       </h4>
+
                       {turnState.needsShippingAddress && (
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Shipping Address</label>
-                          <Textarea 
+                          <Textarea
                             value={shippingAddress}
                             onChange={(e) => setShippingAddress(e.target.value)}
                             placeholder="Enter your full shipping address..."
@@ -239,19 +258,125 @@ export default function Assistant() {
                           />
                         </div>
                       )}
-                      <div className="flex gap-3 pt-2">
-                        <Button onClick={() => handleConfirmOrder(msg.id)} className="flex-1 gap-2">
-                          <Check className="h-4 w-4" /> Confirm
+
+                      {/* Payment method picker */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Payment Method</label>
+                        <div className="grid grid-cols-1 gap-2">
+                          {(
+                            [
+                              { value: "stripe",           label: "Pay with Card",    icon: CreditCard },
+                              { value: "bank_transfer",    label: "Bank Transfer",    icon: Building2 },
+                              { value: "pay_on_delivery",  label: "Pay on Delivery",  icon: Truck },
+                            ] as { value: PaymentMethod; label: string; icon: typeof CreditCard }[]
+                          ).map(({ value, label, icon: Icon }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setSelectedPaymentMethod(value)}
+                              className={cn(
+                                "flex items-center gap-3 w-full rounded-xl border px-4 py-3 text-sm font-medium transition-all text-left",
+                                selectedPaymentMethod === value
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border bg-background hover:border-primary/40 hover:bg-muted/40"
+                              )}
+                            >
+                              <Icon className="h-4 w-4 shrink-0" />
+                              {label}
+                              {selectedPaymentMethod === value && (
+                                <Check className="h-3.5 w-3.5 ml-auto" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-1">
+                        <Button
+                          onClick={() => handleConfirmOrder(msg.id)}
+                          className="flex-1 gap-2"
+                          disabled={sendChat.isPending}
+                        >
+                          <Check className="h-4 w-4" /> Confirm Order
                         </Button>
-                        <Button variant="outline" onClick={() => handleCancelOrder(msg.id)} className="flex-1 gap-2 bg-background">
+                        <Button
+                          variant="outline"
+                          onClick={() => handleCancelOrder(msg.id)}
+                          className="flex-1 gap-2 bg-background"
+                          disabled={sendChat.isPending}
+                        >
                           <X className="h-4 w-4" /> Cancel
                         </Button>
                       </div>
                     </Card>
                   )}
 
-                  {/* Order placed confirmation */}
-                  {turnState?.placedOrder && (
+                  {/* Stripe payment button */}
+                  {turnState?.stripeCheckoutUrl && (
+                    <Card className="mt-2 p-4 border-blue-500/20 bg-blue-500/5 w-full max-w-md space-y-3">
+                      <h4 className="font-semibold text-blue-700 flex items-center gap-2">
+                        <CreditCard className="h-4 w-4" /> Complete Card Payment
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        Click below to pay securely with Stripe. Your order will be confirmed after payment.
+                      </p>
+                      <a href={turnState.stripeCheckoutUrl} target="_blank" rel="noreferrer">
+                        <Button className="w-full gap-2 bg-blue-600 hover:bg-blue-700">
+                          <ExternalLink className="h-4 w-4" /> Pay with Card →
+                        </Button>
+                      </a>
+                    </Card>
+                  )}
+
+                  {/* Bank transfer details */}
+                  {turnState?.placedOrder && turnState.bankDetails && (
+                    <Card className="mt-2 p-5 border-amber-500/20 bg-amber-500/5 w-full max-w-md space-y-3">
+                      <h4 className="font-semibold text-amber-700 flex items-center gap-2">
+                        <Building2 className="h-4 w-4" /> Bank Transfer Details
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Transfer the exact order total and use your tracking code as the reference.
+                      </p>
+                      <div className="space-y-1.5 text-sm">
+                        {turnState.bankDetails.bankName && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Bank</span>
+                            <span className="font-medium">{turnState.bankDetails.bankName}</span>
+                          </div>
+                        )}
+                        {turnState.bankDetails.accountName && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Account Name</span>
+                            <span className="font-medium">{turnState.bankDetails.accountName}</span>
+                          </div>
+                        )}
+                        {turnState.bankDetails.accountNumber && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Account No.</span>
+                            <span className="font-mono font-bold text-foreground">{turnState.bankDetails.accountNumber}</span>
+                          </div>
+                        )}
+                        {turnState.bankDetails.routingNumber && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Routing</span>
+                            <span className="font-mono">{turnState.bankDetails.routingNumber}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between pt-1 border-t border-amber-500/20">
+                          <span className="text-muted-foreground">Tracking ref</span>
+                          <span className="font-mono font-bold text-foreground">{turnState.placedOrder.trackingCode}</span>
+                        </div>
+                      </div>
+                      <Link href={`/orders/${turnState.placedOrder.id}`}>
+                        <Button variant="outline" size="sm" className="w-full bg-background">
+                          View Order
+                        </Button>
+                      </Link>
+                    </Card>
+                  )}
+
+                  {/* Pay on delivery / plain order success */}
+                  {turnState?.placedOrder && !turnState.bankDetails && !turnState.stripeCheckoutUrl && (
                     <Card className="mt-2 p-4 border-emerald-500/20 bg-emerald-500/5 w-full max-w-md">
                       <div>
                         <h4 className="font-semibold text-emerald-700 flex items-center gap-2 mb-1">

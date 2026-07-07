@@ -963,7 +963,21 @@ components:
           type: boolean
           description: When true, AI is authorized to place order with current cart
         shippingAddress: { type: string }
+        paymentMethod:
+          type: string
+          enum: [stripe, bank_transfer, pay_on_delivery]
+          description: Payment method chosen by the shopper
       required: [content]
+
+    ChatBankDetails:
+      type: object
+      properties:
+        bankName: { type: string }
+        accountName: { type: string }
+        accountNumber: { type: string }
+        routingNumber: { type: string }
+        email: { type: string }
+      required: [bankName, accountName, accountNumber]
 
     ChatTurnResponse:
       type: object
@@ -982,4 +996,10 @@ components:
           type: boolean
         needsShippingAddress:
           type: boolean
+        stripeCheckoutUrl:
+          type: string
+          description: Stripe checkout URL when paymentMethod=stripe
+        bankDetails:
+          $ref: "#/components/schemas/ChatBankDetails"
+          description: Bank details when paymentMethod=bank_transfer
       required: [userMessage, assistantMessage, suggestedProducts, addedToCart, needsConfirmation, needsShippingAddress]

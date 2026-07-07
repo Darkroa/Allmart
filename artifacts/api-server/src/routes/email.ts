@@ -5,7 +5,11 @@ import nodemailer from "nodemailer";
 
 const router: IRouter = Router();
 
-const FROM = process.env.RESEND_FROM ?? "AllMart <onboarding@resend.dev>";
+const FROM =
+  process.env.RESEND_FROM ??
+  (process.env.SMTP_USER
+    ? `AllMart <${process.env.SMTP_USER}>`
+    : "AllMart <onboarding@resend.dev>");
 
 // ---------------------------------------------------------------------------
 // Unified email sender — tries Resend first, falls back to SMTP.

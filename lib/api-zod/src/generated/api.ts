@@ -696,6 +696,10 @@ export const SendChatMessageBody = zod.object({
     .optional()
     .describe("When true, AI is authorized to place order with current cart"),
   shippingAddress: zod.string().optional(),
+  paymentMethod: zod
+    .enum(["stripe", "bank_transfer", "pay_on_delivery"])
+    .optional()
+    .describe("Payment method chosen by the shopper"),
 });
 
 export const SendChatMessageResponse = zod.object({
