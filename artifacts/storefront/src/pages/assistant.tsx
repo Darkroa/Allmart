@@ -248,11 +248,6 @@ export default function Assistant() {
                     {msg.content}
                   </div>
 
-                  {/* Provider badge on assistant messages (current session only) */}
-                  {!isUser && turnState?.provider && (
-                    <ProviderBadge provider={turnState.provider} />
-                  )}
-
                   {/* Product suggestion cards */}
                   {!isUser && msg.productSuggestions && msg.productSuggestions.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1.5 w-full max-w-2xl">
