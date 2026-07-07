@@ -1,4 +1,4 @@
-NowBuy — Running the Project Locally
+Allmarts — Running the Project Locally
 ======================================
 
 PREREQUISITES

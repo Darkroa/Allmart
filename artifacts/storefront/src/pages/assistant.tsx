@@ -7,20 +7,46 @@ import {
   getGetCartQueryKey, 
   getListOrdersQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
-import { Send, Trash2, Bot, User, Check, X, Package } from "lucide-react";
+import { Send, Trash2, Bot, User, Check, X, Package, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+
+type ProviderInfo = { name: string; label: string; model: string };
 
 type TurnState = {
   needsConfirmation?: boolean;
   needsShippingAddress?: boolean;
   placedOrder?: any;
+  provider?: ProviderInfo;
 };
+
+const PROVIDER_COLORS: Record<string, string> = {
+  groq:   "bg-orange-500/10 text-orange-600 border-orange-500/20",
+  github: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  nvidia: "bg-green-500/10 text-green-600 border-green-500/20",
+  openai: "bg-violet-500/10 text-violet-600 border-violet-500/20",
+};
+
+function ProviderBadge({ provider, className = "" }: { provider: ProviderInfo; className?: string }) {
+  const color = PROVIDER_COLORS[provider.name] ?? "bg-muted text-muted-foreground border-border";
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${color} ${className}`}>
+      <Zap className="h-2.5 w-2.5" />
+      {provider.label} · {provider.model}
+    </span>
+  );
+}
+
+async function fetchProviders(): Promise<ProviderInfo[]> {
+  const res = await fetch("/api/chat/providers");
+  if (!res.ok) return [];
+  return res.json();
+}
 
 export default function Assistant() {
   const queryClient = useQueryClient();
@@ -31,10 +57,17 @@ export default function Assistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { data: messages, isLoading } = useListChatMessages();
+  const { data: providers = [] } = useQuery<ProviderInfo[]>({
+    queryKey: ["chat-providers"],
+    queryFn: fetchProviders,
+    staleTime: 60_000,
+  });
+
+  const activeProvider = providers[0] ?? null;
   
   const sendChat = useSendChatMessage({
     mutation: {
-      onSuccess: (data) => {
+      onSuccess: (data: any) => {
         queryClient.invalidateQueries({ queryKey: getListChatMessagesQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
         queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
@@ -45,7 +78,8 @@ export default function Assistant() {
             [data.assistantMessage.id]: {
               needsConfirmation: data.needsConfirmation,
               needsShippingAddress: data.needsShippingAddress,
-              placedOrder: data.placedOrder
+              placedOrder: data.placedOrder,
+              provider: data.provider ?? undefined,
             }
           }));
         }
@@ -66,7 +100,6 @@ export default function Assistant() {
   useEffect(() => {
     const prefill = sessionStorage.getItem("nb_prefill");
     const initialQuery = sessionStorage.getItem("initial_assistant_query");
-    
     if (prefill) {
       setContent(prefill);
       sessionStorage.removeItem("nb_prefill");
@@ -83,7 +116,6 @@ export default function Assistant() {
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!content.trim() || sendChat.isPending) return;
-    
     sendChat.mutate({ data: { content: content.trim() } });
     setContent("");
   };
@@ -101,7 +133,6 @@ export default function Assistant() {
       toast({ title: "Address required", description: "Please enter a valid shipping address.", variant: "destructive" });
       return;
     }
-    
     sendChat.mutate({ 
       data: { 
         content: "Yes, please place the order.", 
@@ -109,7 +140,6 @@ export default function Assistant() {
         shippingAddress: turn?.needsShippingAddress ? shippingAddress : undefined 
       } 
     });
-    
     setTurnStates(prev => ({
       ...prev,
       [messageId]: { ...prev[messageId], needsConfirmation: false }
@@ -125,6 +155,7 @@ export default function Assistant() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto w-full px-4 sm:px-6">
+      {/* Header */}
       <div className="flex items-center justify-between py-4 border-b border-border/50">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -132,21 +163,44 @@ export default function Assistant() {
           </div>
           <div>
             <h1 className="font-serif font-bold text-lg leading-tight">AI Assistant</h1>
-            <p className="text-xs text-muted-foreground">Always here to help you shop</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              {activeProvider ? (
+                <ProviderBadge provider={activeProvider} />
+              ) : (
+                <span className="text-xs text-muted-foreground">Always here to help you shop</span>
+              )}
+            </div>
           </div>
         </div>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-2"
-          onClick={() => resetChat.mutate()}
-          disabled={resetChat.isPending || isLoading}
-        >
-          <Trash2 className="h-4 w-4" />
-          <span className="hidden sm:inline">Reset Chat</span>
-        </Button>
+
+        <div className="flex items-center gap-2">
+          {/* Provider switcher pills */}
+          {providers.length > 1 && (
+            <div className="hidden sm:flex items-center gap-1.5">
+              {providers.map((p) => (
+                <span
+                  key={p.name}
+                  className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${PROVIDER_COLORS[p.name] ?? "bg-muted text-muted-foreground"}`}
+                >
+                  {p.label}
+                </span>
+              ))}
+            </div>
+          )}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-2"
+            onClick={() => resetChat.mutate()}
+            disabled={resetChat.isPending || isLoading}
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Reset</span>
+          </Button>
+        </div>
       </div>
 
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto py-6 space-y-8 scroll-smooth">
         {isLoading ? (
           <div className="space-y-6">
@@ -169,7 +223,10 @@ export default function Assistant() {
               <Sparkles className="h-8 w-8 text-primary" />
             </div>
             <h2 className="text-xl font-serif font-bold text-foreground">How can I help you today?</h2>
-            <p className="max-w-sm">I can find products, answer questions, and even place orders for you.</p>
+            <p className="max-w-sm">I can find products, add them to your cart, and place orders for you.</p>
+            {activeProvider && (
+              <ProviderBadge provider={activeProvider} className="mt-2" />
+            )}
           </div>
         ) : (
           messages?.map((msg) => {
@@ -177,22 +234,28 @@ export default function Assistant() {
             const turnState = turnStates[msg.id];
             
             return (
-              <div key={msg.id} className={`flex gap-4 ${isUser ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${isUser ? 'bg-secondary text-secondary-foreground' : 'bg-primary/10 text-primary'}`}>
+              <div key={msg.id} className={`flex gap-4 ${isUser ? "flex-row-reverse" : ""}`}>
+                <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${isUser ? "bg-secondary text-secondary-foreground" : "bg-primary/10 text-primary"}`}>
                   {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                 </div>
                 
-                <div className={`flex flex-col gap-2 max-w-[85%] ${isUser ? 'items-end' : 'items-start'}`}>
+                <div className={`flex flex-col gap-1.5 max-w-[85%] ${isUser ? "items-end" : "items-start"}`}>
                   <div className={`px-5 py-3.5 text-[15px] leading-relaxed shadow-sm ${
                     isUser 
-                      ? 'bg-foreground text-background rounded-3xl rounded-tr-sm' 
-                      : 'bg-card border border-border/50 rounded-3xl rounded-tl-sm'
+                      ? "bg-foreground text-background rounded-3xl rounded-tr-sm" 
+                      : "bg-card border border-border/50 rounded-3xl rounded-tl-sm"
                   }`}>
                     {msg.content}
                   </div>
 
+                  {/* Provider badge on assistant messages (current session only) */}
+                  {!isUser && turnState?.provider && (
+                    <ProviderBadge provider={turnState.provider} />
+                  )}
+
+                  {/* Product suggestion cards */}
                   {!isUser && msg.productSuggestions && msg.productSuggestions.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2 w-full max-w-2xl">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1.5 w-full max-w-2xl">
                       {msg.productSuggestions.map((prod) => (
                         <Link key={prod.id} href={`/products/${prod.id}`}>
                           <Card className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors cursor-pointer border-border/50 shadow-none">
@@ -206,7 +269,7 @@ export default function Assistant() {
                             <div className="flex-1 min-w-0">
                               <h4 className="font-medium text-sm truncate">{prod.name}</h4>
                               <p className="text-primary text-sm font-semibold mt-0.5">
-                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: prod.currency }).format(prod.price)}
+                                {new Intl.NumberFormat("en-US", { style: "currency", currency: prod.currency }).format(prod.price)}
                               </p>
                             </div>
                           </Card>
@@ -215,12 +278,12 @@ export default function Assistant() {
                     </div>
                   )}
 
+                  {/* Order confirmation widget */}
                   {turnState?.needsConfirmation && (
                     <Card className="mt-2 p-5 border-primary/20 bg-primary/5 w-full max-w-md space-y-4">
                       <h4 className="font-semibold text-primary flex items-center gap-2">
                         <Package className="h-4 w-4" /> Confirm this order?
                       </h4>
-                      
                       {turnState.needsShippingAddress && (
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Shipping Address</label>
@@ -232,36 +295,27 @@ export default function Assistant() {
                           />
                         </div>
                       )}
-                      
                       <div className="flex gap-3 pt-2">
-                        <Button 
-                          onClick={() => handleConfirmOrder(msg.id)}
-                          className="flex-1 gap-2"
-                        >
+                        <Button onClick={() => handleConfirmOrder(msg.id)} className="flex-1 gap-2">
                           <Check className="h-4 w-4" /> Confirm
                         </Button>
-                        <Button 
-                          variant="outline"
-                          onClick={() => handleCancelOrder(msg.id)}
-                          className="flex-1 gap-2 bg-background"
-                        >
+                        <Button variant="outline" onClick={() => handleCancelOrder(msg.id)} className="flex-1 gap-2 bg-background">
                           <X className="h-4 w-4" /> Cancel
                         </Button>
                       </div>
                     </Card>
                   )}
 
+                  {/* Order placed confirmation */}
                   {turnState?.placedOrder && (
                     <Card className="mt-2 p-4 border-emerald-500/20 bg-emerald-500/5 w-full max-w-md">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-semibold text-emerald-700 flex items-center gap-2 mb-1">
-                            <Check className="h-4 w-4" /> Order Placed Successfully
-                          </h4>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Tracking Code: <span className="font-mono text-foreground font-medium">{turnState.placedOrder.trackingCode}</span>
-                          </p>
-                        </div>
+                      <div>
+                        <h4 className="font-semibold text-emerald-700 flex items-center gap-2 mb-1">
+                          <Check className="h-4 w-4" /> Order Placed Successfully
+                        </h4>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Tracking Code: <span className="font-mono text-foreground font-medium">{turnState.placedOrder.trackingCode}</span>
+                        </p>
                       </div>
                       <Link href={`/orders/${turnState.placedOrder.id}`}>
                         <Button variant="outline" size="sm" className="w-full bg-background border-emerald-500/20 text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-800">
@@ -282,15 +336,16 @@ export default function Assistant() {
               <Bot className="h-4 w-4" />
             </div>
             <div className="bg-card border border-border/50 rounded-3xl rounded-tl-sm px-5 py-4 flex items-center gap-1.5 h-[52px]">
-              <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+              <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: "300ms" }} />
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Input */}
       <div className="py-4 pb-8 shrink-0 relative bg-background">
         <form 
           onSubmit={handleSubmit}
