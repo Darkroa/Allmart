@@ -90,7 +90,35 @@ const timerSt = StyleSheet.create({
   colon: { fontSize: 14, fontFamily: 'Inter_700Bold', color: PURPLE, marginBottom: 1 },
 });
 
-const CAT_COLORS = ['#7C3AED', '#EC4899', '#F97316', '#10B981', '#3B82F6', '#F59E0B'];
+const CAT_COLORS = ['#EC4899', '#F97316', '#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EF4444', '#06B6D4'];
+
+type FeatherName = React.ComponentProps<typeof Feather>['name'];
+const CAT_ICONS: Record<string, FeatherName> = {
+  accessories:  'watch',
+  outdoor:      'navigation',
+  shoes:        'package',
+  beauty:       'heart',
+  electronics:  'cpu',
+  fashion:      'tag',
+  clothing:     'tag',
+  sports:       'activity',
+  food:         'coffee',
+  books:        'book-open',
+  gaming:       'monitor',
+  health:       'activity',
+  travel:       'map-pin',
+  pets:         'home',
+  jewelry:      'award',
+  home:         'home',
+  music:        'music',
+  automotive:   'truck',
+  cars:         'truck',
+  toys:         'gift',
+};
+function getCatIcon(slug: string): FeatherName {
+  const key = slug.toLowerCase().replace(/[^a-z]/g, '');
+  return CAT_ICONS[key] ?? 'grid';
+}
 const QUICK_ACTIONS = [
   { icon: 'grid' as const, label: 'Categories', tab: '/(tabs)/search' },
   { icon: 'zap' as const, label: 'Flash Sale', tab: '/(tabs)/search' },
@@ -368,7 +396,7 @@ export default function HomeScreen() {
                   <Text style={st.seeAll}>See all</Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 4 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
                 {categories.map((cat, i) => (
                   <TouchableOpacity
                     key={cat.slug}
@@ -377,7 +405,7 @@ export default function HomeScreen() {
                     activeOpacity={0.8}
                   >
                     <View style={[st.catImg, { backgroundColor: CAT_COLORS[i % CAT_COLORS.length] }]}>
-                      <Text style={st.catInitial}>{cat.name.charAt(0).toUpperCase()}</Text>
+                      <Feather name={getCatIcon(cat.slug)} size={22} color="#FFFFFF" />
                     </View>
                     <Text style={[st.catName, { color: textDark }]} numberOfLines={1}>{cat.name}</Text>
                   </TouchableOpacity>
@@ -541,10 +569,9 @@ const st = StyleSheet.create({
   seeAll: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: PURPLE },
 
   // Categories
-  catTile: { alignItems: 'center', width: 72 },
-  catImg: { width: 68, height: 68, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 4, elevation: 2 },
-  catInitial: { fontSize: 28, fontFamily: 'Inter_700Bold', color: WHITE },
-  catName: { fontSize: 11, fontFamily: 'Inter_500Medium', textAlign: 'center' },
+  catTile: { alignItems: 'center', width: 58 },
+  catImg: { width: 54, height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 4, elevation: 2 },
+  catName: { fontSize: 10, fontFamily: 'Inter_500Medium', textAlign: 'center' },
 
   // Flash Sale
   flashCard: { width: FLASH_W, borderRadius: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },

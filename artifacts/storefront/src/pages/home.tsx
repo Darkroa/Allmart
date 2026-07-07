@@ -1,19 +1,29 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { useGetStorefrontSummary, useListProducts, useListCategories, useGetCurrentUser, useGetCart } from "@workspace/api-client-react";
+import {
+  useGetStorefrontSummary,
+  useListProducts,
+  useListCategories,
+  useGetCurrentUser,
+  useGetCart,
+  signOut,
+  getGetCurrentUserQueryKey,
+  getGetCartQueryKey,
+  getListOrdersQueryKey,
+  getListChatMessagesQueryKey,
+} from "@workspace/api-client-react";
 import type { Product } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   ArrowRight, Search, Sparkles, ChevronDown, ChevronUp,
-  Store, Package, Bell, ShoppingBag, LogOut, Lock, Users, UserCog, LifeBuoy, UserCircle2, Menu,
-  LayoutGrid, Zap, Truck, Tag, Bot,
+  Store, Bell, ShoppingCart, LogOut, Lock, Users, UserCog,
+  LifeBuoy, UserCircle2, Menu, LayoutGrid, Zap, Truck, Tag,
+  Watch, Mountain, Footprints, Heart, Laptop, Shirt, Dumbbell,
+  UtensilsCrossed, BookOpen, Gamepad2, HeartPulse, Plane, PawPrint,
+  Gem, Home as HomeIcon, Music2, Car, Sun, Moon, Package,
 } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FeaturedCarousel } from "@/components/featured-carousel";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { NotificationsBell } from "@/components/notifications-bell";
 import { StaffSidebarTrigger } from "@/components/staff-sidebar";
 import {
   Sheet,
@@ -28,14 +38,54 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { signOut, getGetCurrentUserQueryKey, getGetCartQueryKey, getListOrdersQueryKey, getListChatMessagesQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
+// ── Category icon mapping ──────────────────────────────────────────────────────
+type LucideIcon = React.ElementType;
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  accessories: Watch,
+  outdoor:     Mountain,
+  shoes:       Footprints,
+  beauty:      Heart,
+  electronics: Laptop,
+  fashion:     Shirt,
+  clothing:    Shirt,
+  sports:      Dumbbell,
+  food:        UtensilsCrossed,
+  books:       BookOpen,
+  gaming:      Gamepad2,
+  health:      HeartPulse,
+  travel:      Plane,
+  pets:        PawPrint,
+  jewelry:     Gem,
+  home:        HomeIcon,
+  music:       Music2,
+  automotive:  Car,
+  cars:        Car,
+  toys:        Gamepad2,
+};
+const CATEGORY_COLORS = [
+  "from-pink-500 to-rose-500",
+  "from-orange-400 to-amber-500",
+  "from-emerald-400 to-teal-500",
+  "from-blue-400 to-indigo-500",
+  "from-purple-500 to-violet-600",
+  "from-cyan-400 to-sky-500",
+  "from-red-400 to-orange-500",
+  "from-green-400 to-emerald-500",
+];
+function getCategoryIcon(slug: string): LucideIcon {
+  const key = slug.toLowerCase().replace(/[^a-z]/g, "");
+  return CATEGORY_ICONS[key] ?? LayoutGrid;
+}
+
+// ── Shop drawer ────────────────────────────────────────────────────────────────
 const SHOP_NAV = [
-  { href: "/products", icon: Store, label: "All Products" },
+  { href: "/products", icon: LayoutGrid, label: "All Products" },
   { href: "/products?sort=featured", icon: Sparkles, label: "Featured" },
   { href: "/products?sort=new", icon: ArrowRight, label: "New Arrivals" },
-  { href: "/products?sort=sale", icon: ChevronDown, label: "Sale" },
+  { href: "/products?sort=sale", icon: Tag, label: "Sale" },
+  { href: "/assistant", icon: Sparkles, label: "Ask AI" },
 ];
 
 function ShopDrawerInner() {
@@ -43,8 +93,8 @@ function ShopDrawerInner() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <button className="h-9 w-9 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
-          <Menu className="h-5 w-5 text-white" />
+        <button className="h-8 w-8 flex items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 transition-colors shrink-0">
+          <Menu className="h-4 w-4 text-white" />
         </button>
       </SheetTrigger>
       <SheetContent side="left" className="w-72 p-0 flex flex-col">
@@ -53,14 +103,14 @@ function ShopDrawerInner() {
             <Store className="h-5 w-5 text-white" />
           </div>
           <div>
-            <p className="font-serif font-bold text-white text-lg leading-tight">Shop</p>
+            <p className="font-bold text-white text-lg leading-tight">Shop</p>
             <p className="text-xs text-white/70">Browse AllMart</p>
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {SHOP_NAV.map((item) => {
             const active = location === item.href || (item.href !== "/" && location.startsWith(item.href.split("?")[0]));
-            const ItemIcon = item.icon;
+            const Icon = item.icon;
             return (
               <SheetClose asChild key={item.href}>
                 <Link
@@ -70,7 +120,7 @@ function ShopDrawerInner() {
                   }`}
                 >
                   <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${active ? "bg-primary/15" : "bg-muted"}`}>
-                    <ItemIcon className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                    <Icon className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground"}`} />
                   </span>
                   {item.label}
                 </Link>
@@ -92,70 +142,34 @@ function ShopDrawerInner() {
   );
 }
 
-function TrendingSlider({ terms, onSelect }: { terms: string[]; onSelect: (t: string) => void }) {
-  const ref = useRef<HTMLDivElement>(null);
+// ── Countdown timer ────────────────────────────────────────────────────────────
+function useCountdown(targetHours = 2) {
+  const end = useRef(Date.now() + targetHours * 3600_000);
+  const [left, setLeft] = useState(end.current - Date.now());
   useEffect(() => {
-    const el = ref.current;
-    if (!el || terms.length === 0) return;
-    const total = el.scrollWidth / 2;
-    let raf: number;
-    let pos = 0;
-    function step() {
-      pos += 0.4;
-      if (pos >= total) pos = 0;
-      el!.scrollLeft = pos;
-      raf = requestAnimationFrame(step);
-    }
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [terms]);
-
-  const doubled = [...terms, ...terms];
-  return (
-    <div className="pt-4 flex items-center gap-2 max-w-2xl mx-auto overflow-hidden">
-      <span className="text-xs text-white/60 shrink-0 font-medium">Trending</span>
-      <div ref={ref} className="flex gap-1.5 overflow-hidden" style={{ userSelect: "none" }}>
-        {doubled.map((term, i) => (
-          <button
-            key={i}
-            onClick={() => onSelect(term)}
-            className="text-xs px-3 py-1 rounded-full bg-white/15 border border-white/20 text-white/80 hover:bg-white/25 hover:text-white transition-colors whitespace-nowrap shrink-0"
-          >
-            {term}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+    const id = setInterval(() => setLeft(Math.max(0, end.current - Date.now())), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const h = Math.floor(left / 3600_000).toString().padStart(2, "0");
+  const m = Math.floor((left % 3600_000) / 60_000).toString().padStart(2, "0");
+  const s = Math.floor((left % 60_000) / 1_000).toString().padStart(2, "0");
+  return { h, m, s };
 }
 
-function CategoryRow({ name, slug, products }: { name: string; slug: string; products: Product[] }) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-serif font-bold tracking-tight capitalize">{name}</h2>
-        <Link href={`/products?category=${slug}`}>
-          <Button variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground hover:text-primary">
-            View all <ArrowRight className="h-3 w-3" />
-          </Button>
-        </Link>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-        {products.slice(0, 5).map((p) => (
-          <ProductCard key={p.id} product={p} />
-        ))}
-      </div>
-    </div>
-  );
+// ── Discount pill helper ───────────────────────────────────────────────────────
+function discountPct(product: Product): number | null {
+  const orig = (product as any).originalPrice ?? (product as any).compareAtPrice;
+  if (!orig || orig <= product.price) return null;
+  return Math.round(100 - (product.price / orig) * 100);
 }
 
+// ── Main page ──────────────────────────────────────────────────────────────────
 export default function Home() {
   const [, setLocation] = useLocation();
   const [query, setQuery] = useState("");
-  const [catsExpanded, setCatsExpanded] = useState(false);
   const queryClient = useQueryClient();
+  const { h, m, s } = useCountdown(2);
 
-  const { data: summary, isLoading: isSummaryLoading } = useGetStorefrontSummary();
   const { data: categories } = useListCategories();
   const { data: allProducts, isLoading: isProductsLoading } = useListProducts();
   const { data: meData } = useGetCurrentUser();
@@ -171,7 +185,15 @@ export default function Home() {
     return "Good evening";
   };
 
-  const handleAskAI = (e: React.FormEvent) => {
+  const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
+  const toggleDark = () => {
+    const next = !darkMode;
+    setDarkMode(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("theme", next ? "dark" : "light");
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
       sessionStorage.setItem("initial_assistant_query", query);
@@ -190,6 +212,7 @@ export default function Home() {
     setLocation("/");
   }
 
+  // categories with products
   const categoryGroups = (() => {
     if (!allProducts || !categories) return [];
     const map = new Map<string, Product[]>();
@@ -203,219 +226,282 @@ export default function Home() {
       .map(c => ({ slug: c.slug, name: c.name, products: map.get(c.slug) ?? [] }));
   })();
 
-  const VISIBLE_CATS = 4;
-  const visibleGroups = catsExpanded ? categoryGroups : categoryGroups.slice(0, VISIBLE_CATS);
-  const hasMore = categoryGroups.length > VISIBLE_CATS;
-  const isLoading = isSummaryLoading || isProductsLoading;
+  // Sale products (up to 8 for flash sale row)
+  const saleProducts = (allProducts ?? []).slice(0, 8);
 
   return (
-    <div className="flex flex-col min-h-[100dvh]">
+    <div className="flex flex-col min-h-[100dvh] bg-background">
 
-      {/* ── Mobile-style purple header ── */}
-      <section className="bg-primary px-4 pb-5 pt-safe">
-        {/* Top action bar */}
-        <div className="flex items-center gap-2 pt-3 pb-3">
-          {/* Left: shop drawer */}
+      {/* ── Purple header ─────────────────────────────────────────────────────── */}
+      <section className="bg-primary px-4 pb-4 pt-safe">
+        {/* Top bar: hamburger | greeting+title | actions */}
+        <div className="flex items-center gap-3 pt-3 pb-3">
           <ShopDrawerInner />
 
-          {/* Right: theme toggle, notifications, user, cart */}
-          <div className="flex items-center gap-1.5 ml-auto">
-            <ThemeToggle variant="home" />
-            {me ? (
-              <>
-                <NotificationsBell enabled={true} variant="home" />
-                {isStaff ? (
-                  <StaffSidebarTrigger role={me.role as "admin" | "pm"} name={me.name} />
-                ) : (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
-                        <UserCircle2 className="h-5 w-5 text-white" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44">
-                      <DropdownMenuItem asChild>
-                        <Link href="/profile" className="flex items-center gap-2 cursor-pointer"><UserCog className="h-4 w-4" /> Profile</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/referral" className="flex items-center gap-2 cursor-pointer"><Users className="h-4 w-4" /> Referrals</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/security" className="flex items-center gap-2 cursor-pointer"><Lock className="h-4 w-4" /> Security</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/notifications" className="flex items-center gap-2 cursor-pointer"><Bell className="h-4 w-4" /> Notifications</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/support" className="flex items-center gap-2 cursor-pointer"><LifeBuoy className="h-4 w-4" /> Support</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive gap-2 cursor-pointer">
-                        <LogOut className="h-4 w-4" /> Sign out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </>
-            ) : (
-              <Link href="/account">
-                <button className="flex h-9 items-center gap-1.5 rounded-full bg-white/20 hover:bg-white/30 px-3 text-xs font-semibold text-white transition-colors">
-                  Sign in
-                </button>
-              </Link>
-            )}
+          {/* Greeting + title (compact, inline) */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-white/70 font-medium leading-none mb-0.5">
+              {greeting()}{me ? `, ${me.name.split(" ")[0]}` : ""} 👋
+            </p>
+            <p className="text-sm font-bold text-white leading-tight truncate">
+              Find your perfect product
+            </p>
+          </div>
+
+          {/* Right actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Theme toggle */}
+            <button
+              onClick={toggleDark}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors"
+            >
+              {darkMode ? <Sun className="h-4 w-4 text-white" /> : <Moon className="h-4 w-4 text-white" />}
+            </button>
+
+            {/* Cart */}
             <Link href="/cart">
-              <button className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
-                <ShoppingBag className="h-5 w-5 text-white" />
+              <button className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+                <ShoppingCart className="h-4 w-4 text-white" />
                 {cartItemCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-primary">
-                    {cartItemCount}
+                  <span className="absolute -right-0.5 -top-0.5 flex h-[14px] w-[14px] items-center justify-center rounded-full bg-orange-400 text-[9px] font-bold text-white">
+                    {cartItemCount > 9 ? "9+" : cartItemCount}
                   </span>
                 )}
               </button>
             </Link>
+
+            {/* Bell / user menu */}
+            {me ? (
+              isStaff ? (
+                <StaffSidebarTrigger role={me.role as "admin" | "pm"} name={me.name} />
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+                      <Bell className="h-4 w-4 text-white" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile" className="flex items-center gap-2 cursor-pointer"><UserCog className="h-4 w-4" /> Profile</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/orders" className="flex items-center gap-2 cursor-pointer"><Package className="h-4 w-4" /> My Orders</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/referral" className="flex items-center gap-2 cursor-pointer"><Users className="h-4 w-4" /> Referrals</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/security" className="flex items-center gap-2 cursor-pointer"><Lock className="h-4 w-4" /> Security</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/support" className="flex items-center gap-2 cursor-pointer"><LifeBuoy className="h-4 w-4" /> Support</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive gap-2 cursor-pointer">
+                      <LogOut className="h-4 w-4" /> Sign out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )
+            ) : (
+              <Link href="/account">
+                <button className="flex h-8 items-center gap-1 rounded-full bg-white/20 hover:bg-white/30 px-3 text-[11px] font-semibold text-white transition-colors">
+                  Sign in
+                </button>
+              </Link>
+            )}
           </div>
         </div>
 
-        {/* Greeting + big title */}
-        <div className="pb-4">
-          <p className="text-sm text-white/70 font-medium mb-1">
-            {greeting()}{me ? `, ${me.name.split(" ")[0]}` : ""} 👋
-          </p>
-          <h1 className="text-3xl font-extrabold text-white leading-tight tracking-tight">
-            Find your perfect<br />product
-          </h1>
-        </div>
-
         {/* Search bar */}
-        <form onSubmit={handleAskAI}>
-          <div className="flex items-center bg-white/15 hover:bg-white/20 focus-within:bg-white/20 rounded-2xl px-4 py-3 gap-3 transition-colors border border-white/20">
-            <Search className="h-4 w-4 text-white/60 shrink-0" />
+        <form onSubmit={handleSearch}>
+          <div className="flex items-center bg-white/15 focus-within:bg-white/22 rounded-2xl px-4 py-2.5 gap-3 border border-white/20 transition-colors">
+            <Search className="h-4 w-4 text-white/50 shrink-0" />
             <input
               type="text"
               placeholder="Search for products..."
               className="flex-1 bg-transparent text-sm text-white placeholder:text-white/50 outline-none"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={e => setQuery(e.target.value)}
             />
             {query && (
-              <button type="submit" className="shrink-0 flex h-7 items-center gap-1 rounded-full bg-white/20 px-3 text-xs font-semibold text-white hover:bg-white/30 transition-colors">
-                <Sparkles className="h-3 w-3" /> Ask AI
+              <button type="submit" className="shrink-0 flex h-6 items-center gap-1 rounded-full bg-white/20 px-2.5 text-[11px] font-semibold text-white hover:bg-white/30 transition-colors">
+                <Sparkles className="h-3 w-3" /> Ask
               </button>
             )}
           </div>
         </form>
       </section>
 
-      {/* ── White card section (promo + quick nav) ── */}
-      <section className="bg-background">
-        <div className="max-w-screen-xl mx-auto px-4 pt-4 pb-2 space-y-4">
+      {/* ── Body ──────────────────────────────────────────────────────────────── */}
+      <div className="max-w-screen-xl mx-auto w-full px-4 space-y-6 py-5 pb-12">
 
-          {/* Promo banner */}
-          <div className="relative overflow-hidden rounded-2xl bg-primary px-6 py-5 flex items-center justify-between shadow-lg shadow-primary/20">
-            {/* glow blob */}
-            <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-            <div className="relative z-10 space-y-1.5">
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white">
-                🔥 Limited Time
-              </span>
-              <p className="text-2xl font-extrabold text-white leading-tight">Mega Sale</p>
-              <p className="text-sm text-white/80">Up to 60% Off</p>
-              <Link href="/products?sort=sale">
-                <button className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-primary hover:bg-white/90 transition-colors">
-                  Shop Now <ArrowRight className="h-3 w-3" />
-                </button>
+        {/* Promo banner */}
+        <div className="relative overflow-hidden rounded-2xl bg-[#1e1150] dark:bg-[#160d40] px-6 py-5 flex items-center justify-between shadow-xl">
+          <div className="absolute -right-6 -top-6 h-36 w-36 rounded-full bg-primary/20 blur-2xl pointer-events-none" />
+          <div className="relative z-10 space-y-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white/90">
+              🔥 Limited Time
+            </span>
+            <p className="text-2xl font-extrabold text-white">Mega Sale</p>
+            <p className="text-sm text-white/70">Up to 60% Off</p>
+            <Link href="/products?sort=sale">
+              <button className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-primary hover:bg-white/90 transition-colors">
+                Shop Now <ArrowRight className="h-3 w-3" />
+              </button>
+            </Link>
+          </div>
+          <div className="relative z-10 text-5xl select-none">🛍️</div>
+        </div>
+
+        {/* Quick-nav: 4 dark icon buttons */}
+        <div className="grid grid-cols-4 gap-3">
+          {([
+            { href: "/products",          icon: LayoutGrid, label: "Categories" },
+            { href: "/products?sort=sale", icon: Zap,        label: "Flash Sale" },
+            { href: "/products?sort=new",  icon: Truck,       label: "Free Ship" },
+            { href: "/products?sort=featured", icon: Tag,     label: "Vouchers" },
+          ] as const).map(({ href, icon: Icon, label }) => (
+            <Link key={href} href={href}>
+              <button className="flex flex-col items-center gap-2 w-full group">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1e1150] dark:bg-[#1a0f45] group-hover:bg-primary/80 transition-colors shadow-sm">
+                  <Icon className="h-5 w-5 text-primary dark:text-primary-foreground" />
+                </span>
+                <span className="text-[10px] text-center font-medium text-foreground/70 leading-tight">
+                  {label}
+                </span>
+              </button>
+            </Link>
+          ))}
+        </div>
+
+        {/* Popular Categories – horizontal scroll, icon pills */}
+        {categoryGroups.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-bold">Popular Categories</h2>
+              <Link href="/products">
+                <span className="text-xs font-semibold text-primary hover:underline">See all</span>
               </Link>
             </div>
-            <div className="relative z-10 text-5xl select-none pr-2">🛍️</div>
-          </div>
-
-          {/* Quick-nav icon row */}
-          <div className="rounded-2xl bg-card border border-border/40 shadow-sm px-4 py-4">
-            <div className="grid grid-cols-5 gap-2">
-              {[
-                { href: "/products", icon: LayoutGrid, label: "Categories" },
-                { href: "/products?sort=sale", icon: Zap, label: "Flash Sale" },
-                { href: "/products?sort=new", icon: Truck, label: "Free Shipping" },
-                { href: "/products?sort=featured", icon: Tag, label: "Vouchers" },
-                { href: "/assistant", icon: Bot, label: "Ask AI" },
-              ].map(({ href, icon: Icon, label }) => (
-                <Link key={href} href={href}>
-                  <button className="flex flex-col items-center gap-1.5 w-full group">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                      <Icon className="h-5 w-5 text-primary" />
-                    </span>
-                    <span className="text-[10px] text-center font-medium text-muted-foreground leading-tight">
-                      {label}
-                    </span>
-                  </button>
-                </Link>
-              ))}
+            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+              {categoryGroups.map(({ slug, name }, idx) => {
+                const Icon = getCategoryIcon(slug);
+                const gradient = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+                return (
+                  <Link key={slug} href={`/products?category=${slug}`}>
+                    <button className="flex flex-col items-center gap-1.5 shrink-0 group">
+                      <span className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient} shadow-sm group-hover:opacity-90 transition-opacity`}>
+                        <Icon className="h-6 w-6 text-white" />
+                      </span>
+                      <span className="text-[10px] font-medium text-foreground/70 max-w-[56px] text-center leading-tight truncate">
+                        {name}
+                      </span>
+                    </button>
+                  </Link>
+                );
+              })}
             </div>
           </div>
+        )}
 
-        </div>
-      </section>
-
-      {/* Featured Carousel */}
-      <section className="py-6 container max-w-screen-xl mx-auto px-4">
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-bold tracking-tight">Featured</h2>
-            <p className="text-muted-foreground mt-0.5 text-xs">Handpicked products.</p>
+        {/* Flash Sale */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-bold flex items-center gap-1.5">
+              <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" /> Flash Sale
+            </h2>
+            <Link href="/products?sort=sale">
+              <span className="text-xs font-semibold text-primary hover:underline">See all</span>
+            </Link>
           </div>
-          <Link href="/products">
-            <Button variant="ghost" size="sm" className="gap-1 group text-xs">
-              View all <ArrowRight className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
-            </Button>
-          </Link>
-        </div>
-        <FeaturedCarousel />
-      </section>
 
-      {/* Category rows */}
-      <section className="pb-12 container max-w-screen-xl mx-auto px-6 space-y-10">
-        {isLoading ? (
-          <div className="space-y-10">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="space-y-3">
-                <Skeleton className="h-6 w-40 rounded" />
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                  {Array.from({ length: 5 }).map((_, j) => (
-                    <div key={j} className="space-y-2">
-                      <Skeleton className="aspect-square rounded-xl" />
-                      <Skeleton className="h-3 w-2/3" />
-                      <Skeleton className="h-3 w-1/2" />
-                    </div>
-                  ))}
-                </div>
-              </div>
+          {/* Countdown */}
+          <div className="flex items-center gap-2 mb-3 text-xs text-foreground/60 font-medium">
+            <span>Ends in</span>
+            {[h, m, s].map((unit, i) => (
+              <span key={i} className="flex items-center gap-2">
+                <span className="flex h-6 min-w-[28px] items-center justify-center rounded-md bg-primary text-white text-xs font-bold px-1.5">
+                  {unit}
+                </span>
+                {i < 2 && <span className="text-primary font-bold">:</span>}
+              </span>
             ))}
           </div>
-        ) : categoryGroups.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground">
-            <p className="text-lg font-medium">No products yet.</p>
+
+          {/* Products */}
+          {isProductsLoading ? (
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="shrink-0 w-36 space-y-2">
+                  <Skeleton className="h-36 w-36 rounded-2xl" />
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              ))}
+            </div>
+          ) : saleProducts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No products yet.</p>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+              {saleProducts.map(p => {
+                const pct = discountPct(p) ?? (10 + (p.id % 20));
+                return (
+                  <Link key={p.id} href={`/products/${p.id}`}>
+                    <div className="relative shrink-0 w-36 group cursor-pointer">
+                      <span className="absolute top-2 left-2 z-10 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        -{pct}%
+                      </span>
+                      <div className="overflow-hidden rounded-2xl bg-muted aspect-square mb-2">
+                        {p.imageUrl ? (
+                          <img
+                            src={p.imageUrl}
+                            alt={p.name}
+                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-muted-foreground">
+                            <ShoppingCart className="h-8 w-8" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs font-semibold text-foreground leading-tight line-clamp-2 mb-0.5">{p.name}</p>
+                      <p className="text-sm font-bold text-primary">
+                        {p.currency === "NGN" ? "₦" : p.currency}{p.price.toLocaleString()}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Category product rows */}
+        {categoryGroups.length === 0 && !isProductsLoading ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <p className="text-base font-medium">No products yet.</p>
             <p className="text-sm mt-1">Add some products in the admin panel to get started.</p>
           </div>
         ) : (
-          <>
-            {visibleGroups.map((group) => (
-              <CategoryRow key={group.slug} slug={group.slug} name={group.name} products={group.products} />
-            ))}
-            {hasMore && (
-              <div className="flex justify-center pt-2">
-                <Button variant="outline" onClick={() => setCatsExpanded((e) => !e)} className="gap-2">
-                  {catsExpanded ? (
-                    <><ChevronUp className="h-4 w-4" /> Show less</>
-                  ) : (
-                    <><ChevronDown className="h-4 w-4" /> Show {categoryGroups.length - VISIBLE_CATS} more categories</>
-                  )}
-                </Button>
+          categoryGroups.map(({ slug, name, products }) => (
+            <div key={slug} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold capitalize">{name}</h2>
+                <Link href={`/products?category=${slug}`}>
+                  <span className="text-xs font-semibold text-primary hover:underline">See all</span>
+                </Link>
               </div>
-            )}
-          </>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {products.slice(0, 5).map(p => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+            </div>
+          ))
         )}
-      </section>
+      </div>
     </div>
   );
 }
