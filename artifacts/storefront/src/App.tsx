@@ -29,6 +29,7 @@ import ShopLanding from "@/pages/shop-landing";
 import Profile from "@/pages/profile";
 import Security from "@/pages/security";
 import Referral from "@/pages/referral";
+import UserDashboard from "@/pages/user-dashboard";
 
 const queryClient = new QueryClient();
 
@@ -55,13 +56,31 @@ function ProfileGate() {
   return null;
 }
 
+/** Redirect logged-in users from / to /dashboard, and guests from /dashboard to /account */
+function AuthRedirect() {
+  const [location, setLocation] = useLocation();
+  const { data: meData, isLoading } = useGetCurrentUser();
+  const isLoggedIn = !isLoading && !!meData?.user;
+  const isGuest    = !isLoading && !meData?.user;
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (isLoggedIn && location === "/") setLocation("/dashboard");
+    if (isGuest    && location === "/dashboard") setLocation("/account");
+  }, [isLoading, isLoggedIn, isGuest, location, setLocation]);
+
+  return null;
+}
+
 function Router() {
   useVisitorTracker();
   return (
     <Layout>
       <ProfileGate />
+      <AuthRedirect />
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/dashboard" component={UserDashboard} />
         <Route path="/products" component={Products} />
         <Route path="/products/:slug" component={ProductDetail} />
         <Route path="/assistant" component={Assistant} />
