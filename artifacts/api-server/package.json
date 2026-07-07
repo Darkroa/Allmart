@@ -21,7 +21,7 @@
     "drizzle-orm": "catalog:",
     "express": "^5",
     "google-auth-library": "^10.6.2",
-    "paystack-node": "^0.3.0",
+    "nodemailer": "^6.9.17",
     "pino": "^9",
     "pino-http": "^10",
     "resend": "^6.12.2",
@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/nodemailer": "^6.4.17",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

@@ -25,8 +25,8 @@ AI-powered Nigerian e-commerce platform with full storefront, admin panel, AI sh
 - AI: OpenAI via Replit AI Integrations
 - Auth: Custom cookie-based auth (bcryptjs)
 - Object Storage: Google Cloud Storage (Replit sidecar)
-- Email: Resend SDK
-- Payments: Paystack inline
+- Email: Resend SDK or SMTP fallback (nodemailer)
+- Payments: Stripe
 
 ## Where things live
 
@@ -40,8 +40,8 @@ AI-powered Nigerian e-commerce platform with full storefront, admin panel, AI sh
 
 ## Admin Account
 
-- Email: `admin@nowbuy.com`
-- Password: `admin@nowbuy1234`
+- Email: `admin@allmart.com`
+- Password: `admin@allmart1234`
 - Admin panel: `/admin`
 
 ## User Roles
@@ -61,8 +61,9 @@ AI-powered Nigerian e-commerce platform with full storefront, admin panel, AI sh
 
 - `DATABASE_URL` — Postgres connection string (auto-provisioned)
 - `SESSION_SECRET` — Cookie signing secret (auto-provisioned)
-- `RESEND_API_KEY` — For order status email notifications
-- `PAYSTACK_SECRET_KEY` / `PAYSTACK_PUBLIC_KEY` — Payment processing
+- `RESEND_API_KEY` — For email (or use SMTP fallback below)
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` — SMTP fallback (e.g. Gmail: smtp.gmail.com:587)
+- `STRIPE_SECRET_KEY` / `STRIPE_PUBLIC_KEY` — Payment processing
 - `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` / `TELEGRAM_WEBHOOK_SECRET` — Telegram bot
 - `DEFAULT_OBJECT_STORAGE_BUCKET_ID` — GCS image bucket
 

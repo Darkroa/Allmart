@@ -1,11 +1,10 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, supportTicketsTable, usersTable, notificationsTable } from "@workspace/db";
+import { db, supportTicketsTable, notificationsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { requireRole, getUserFromCookie } from "../lib/auth";
-import { Resend } from "resend";
+import { sendEmail } from "./email";
 
 const router: IRouter = Router();
-const getResend = () => new Resend(process.env.RESEND_API_KEY ?? "");
 
 router.post("/support-tickets", async (req: Request, res: Response) => {
   const user = await getUserFromCookie(req);
@@ -21,14 +20,13 @@ router.post("/support-tickets", async (req: Request, res: Response) => {
     .values({ userId: user?.id ?? null, name, email, subject, message })
     .returning();
 
-  try {
-    await getResend().emails.send({
-      from: "AllMart Support <support@allmart.com>",
-      to: ["support@allmart.com"],
-      subject: `[Support] ${subject}`,
-      html: `<p><strong>From:</strong> ${name} &lt;${email}&gt;</p><p><strong>Message:</strong></p><p>${message.replace(/\n/g, "<br>")}</p>`,
-    });
-  } catch { /* non-fatal */ }
+  // Forward ticket to support inbox (non-fatal)
+  sendEmail({
+    from: "AllMart Support <support@allmart.com>",
+    to: "support@allmart.com",
+    subject: `[Support] ${subject}`,
+    html: `<p><strong>From:</strong> ${name} &lt;${email}&gt;</p><p><strong>Message:</strong></p><p>${message.replace(/\n/g, "<br>")}</p>`,
+  }).catch(() => {});
 
   res.status(201).json(ticket);
 });
@@ -83,14 +81,12 @@ router.patch(
     }
 
     if (adminReply && ticket.email) {
-      try {
-        await getResend().emails.send({
-          from: "AllMart Support <support@allmart.com>",
-          to: [ticket.email],
-          subject: `Re: ${ticket.subject}`,
-          html: `<p>Hi ${ticket.name},</p><p>Here is our response to your support request:</p><blockquote>${adminReply.replace(/\n/g, "<br>")}</blockquote><p>— AllMart Support Team</p>`,
-        });
-      } catch { /* non-fatal */ }
+      sendEmail({
+        from: "AllMart Support <support@allmart.com>",
+        to: ticket.email,
+        subject: `Re: ${ticket.subject}`,
+        html: `<p>Hi ${ticket.name},</p><p>Here is our response to your support request:</p><blockquote>${adminReply.replace(/\n/g, "<br>")}</blockquote><p>— AllMart Support Team</p>`,
+      }).catch(() => {});
     }
 
     res.json(updated);

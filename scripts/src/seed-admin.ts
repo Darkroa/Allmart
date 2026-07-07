@@ -2,8 +2,8 @@ import { db, usersTable } from "@workspace/db";
 import bcrypt from "bcryptjs";
 
 async function main() {
-  const email = "admin@nowbuy.com";
-  const hash = await bcrypt.hash("admin@nowbuy1234", 10);
+  const email = "admin@allmart.com";
+  const hash = await bcrypt.hash("admin@allmart1234", 10);
 
   const existing = await db.select().from(usersTable);
   const found = existing.find(u => u.email === email);

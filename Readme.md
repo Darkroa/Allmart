@@ -20,8 +20,8 @@ NowBuy is an AI-powered Nigerian e-commerce platform. It uses a pnpm monorepo wi
 - **AI**: OpenAI via Replit AI Integrations (chat assistant)
 - **Auth**: Custom cookie-based auth (bcryptjs)
 - **Object Storage**: Google Cloud Storage (Replit sidecar)
-- **Email**: Resend SDK (`RESEND_API_KEY`), from address `support@nowbuy.com`
-- **Payments**: Paystack inline (`PAYSTACK_PUBLIC_KEY` / `PAYSTACK_SECRET_KEY`)
+- **Email**: Resend SDK (`RESEND_API_KEY`) or SMTP fallback (`SMTP_HOST`/`SMTP_USER`/`SMTP_PASSWORD`), from address `support@allmart.com`
+- **Payments**: Stripe (`STRIPE_SECRET_KEY` / `STRIPE_PUBLIC_KEY`)
 
 ## Artifacts
 
@@ -64,8 +64,8 @@ NowBuy is an AI-powered Nigerian e-commerce platform. It uses a pnpm monorepo wi
 
 ## Admin Account
 
-- Email: `admin@nowbuy.com`
-- Password: `nowbuyadmin1234`
+- Email: `admin@allmart.com`
+- Password: `admin@allmart1234`
 
 ## Admin Routes
 
@@ -81,14 +81,16 @@ NowBuy is an AI-powered Nigerian e-commerce platform. It uses a pnpm monorepo wi
 
 ## Payment Methods
 
-- Paystack inline (card)
+- Stripe (card)
 - Manual bank transfer (details editable by admin at `/admin/bank`)
 - Pay on delivery
 
-## Email (Resend)
+## Email
+
+Emails are sent via **Resend** (if `RESEND_API_KEY` is set) or fall back to **SMTP** (if `SMTP_HOST` + `SMTP_USER` + `SMTP_PASSWORD` are set). If neither is configured, emails are skipped and logged as warnings.
 
 - Order status changes automatically send a branded email to the customer
 - Support ticket replies send an email to the customer
-- New support tickets forward to `support@nowbuy.com`
+- New support tickets forward to `support@allmart.com`
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

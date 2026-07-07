@@ -9,7 +9,7 @@ import adminRouter from "./admin";
 import adminProductsRouter from "./admin-products";
 import storageRouter from "./storage";
 import passwordResetRouter from "./password-reset";
-import bankSettingsRouter from "./paystack";
+import bankSettingsRouter from "./bank-settings";
 import stripeRouter from "./stripe";
 import notificationsRouter from "./notifications";
 import supportRouter from "./support";

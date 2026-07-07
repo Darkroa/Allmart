@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://nowbuy.replit.app/sitemap.xml
+Sitemap: https://allmart.replit.app/sitemap.xml

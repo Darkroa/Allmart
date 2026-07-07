@@ -1,17 +1,63 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Resend } from "resend";
 import { logger } from "../lib/logger";
+import nodemailer from "nodemailer";
 
 const router: IRouter = Router();
 
 const FROM = process.env.RESEND_FROM ?? "AllMart <onboarding@resend.dev>";
 
-function getResend() {
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY is not configured");
-  }
-  return new Resend(process.env.RESEND_API_KEY);
+// ---------------------------------------------------------------------------
+// Unified email sender — tries Resend first, falls back to SMTP.
+// ---------------------------------------------------------------------------
+
+interface EmailPayload {
+  to: string | string[];
+  subject: string;
+  html: string;
+  from?: string;
 }
+
+export async function sendEmail(payload: EmailPayload): Promise<void> {
+  const { to, subject, html, from = FROM } = payload;
+  const toArr = Array.isArray(to) ? to : [to];
+
+  // --- Resend ---
+  if (process.env.RESEND_API_KEY) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const { error } = await resend.emails.send({ from, to: toArr, subject, html });
+    if (error) throw new Error(`Resend error: ${error.message}`);
+    logger.info({ to: toArr, subject }, "Email sent via Resend");
+    return;
+  }
+
+  // --- SMTP fallback ---
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD) {
+    const smtpPort = Number(process.env.SMTP_PORT ?? "587");
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASSWORD,
+      },
+    });
+    await transporter.sendMail({ from, to: toArr.join(", "), subject, html });
+    logger.info({ to: toArr, subject, host: process.env.SMTP_HOST }, "Email sent via SMTP");
+    return;
+  }
+
+  // --- No transport configured ---
+  logger.warn(
+    { to: toArr, subject },
+    "Email skipped: set RESEND_API_KEY or SMTP_HOST + SMTP_USER + SMTP_PASSWORD to enable emails",
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Exported helpers used by other routes
+// ---------------------------------------------------------------------------
 
 export async function sendOrderEmail(opts: {
   to: string;
@@ -33,10 +79,8 @@ export async function sendOrderEmail(opts: {
   const msg = statusMessages[opts.orderStatus] ?? `Your order status is now: ${opts.orderStatus}.`;
   const statusLabel = opts.orderStatus.charAt(0).toUpperCase() + opts.orderStatus.slice(1);
 
-  const resend = getResend();
-  const { data, error } = await resend.emails.send({
-    from: FROM,
-    to: [opts.to],
+  await sendEmail({
+    to: opts.to,
     subject: `Order ${opts.trackingCode} — ${statusLabel}`,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#fff">
@@ -69,12 +113,7 @@ export async function sendOrderEmail(opts: {
       </div>`,
   });
 
-  if (error) {
-    logger.error({ error, to: opts.to, orderStatus: opts.orderStatus }, "Resend email failed");
-    throw new Error(`Resend error: ${error.message}`);
-  }
-
-  logger.info({ id: data?.id, to: opts.to, orderStatus: opts.orderStatus }, "Order email sent");
+  logger.info({ to: opts.to, orderStatus: opts.orderStatus }, "Order email sent");
 }
 
 export async function sendAdminPaymentAlert(opts: {
@@ -87,61 +126,59 @@ export async function sendAdminPaymentAlert(opts: {
   paymentNote?: string | null;
   adminUrl?: string;
 }) {
-  const adminEmail = process.env.ADMIN_EMAIL ?? "admin@nowbuy.com";
-  if (!process.env.RESEND_API_KEY) return;
-
+  const adminEmail = process.env.ADMIN_EMAIL ?? "admin@allmart.com";
   const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: opts.currency }).format(opts.total);
-  const resend = getResend();
 
-  const { error } = await resend.emails.send({
-    from: FROM,
-    to: [adminEmail],
-    subject: `Payment screenshot uploaded — Order ${opts.trackingCode}`,
-    html: `
-      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#fff">
-        <div style="border-bottom:2px solid #1a56e8;padding-bottom:16px;margin-bottom:24px">
-          <h1 style="color:#1a56e8;margin:0;font-size:24px">AllMart — Admin Alert</h1>
-        </div>
-        <p style="color:#111;font-size:16px;font-weight:600">A customer has uploaded a payment screenshot and is awaiting verification.</p>
-        <table style="width:100%;border-collapse:collapse;margin:20px 0;border:1px solid #eee;border-radius:8px;overflow:hidden">
-          <tr style="background:#f0f5ff">
-            <td style="padding:12px 16px;color:#666;font-size:13px;border-bottom:1px solid #eee;width:140px">Order ref</td>
-            <td style="padding:12px 16px;font-weight:bold;border-bottom:1px solid #eee">${opts.trackingCode}</td>
-          </tr>
-          <tr>
-            <td style="padding:12px 16px;color:#666;font-size:13px;border-bottom:1px solid #eee">Customer</td>
-            <td style="padding:12px 16px;border-bottom:1px solid #eee">${opts.customerName} (${opts.customerEmail})</td>
-          </tr>
-          <tr style="background:#f0f5ff">
-            <td style="padding:12px 16px;color:#666;font-size:13px;border-bottom:1px solid #eee">Order total</td>
-            <td style="padding:12px 16px;font-weight:bold;border-bottom:1px solid #eee">${fmt}</td>
-          </tr>
-          <tr>
-            <td style="padding:12px 16px;color:#666;font-size:13px;border-bottom:1px solid #eee">Shipping to</td>
-            <td style="padding:12px 16px;border-bottom:1px solid #eee">${opts.shippingAddress}</td>
-          </tr>
-          ${opts.paymentNote ? `
-          <tr style="background:#f0f5ff">
-            <td style="padding:12px 16px;color:#666;font-size:13px">Customer note</td>
-            <td style="padding:12px 16px;font-style:italic">${opts.paymentNote}</td>
-          </tr>` : ""}
-        </table>
-        <a href="${opts.adminUrl ?? "https://allmart.replit.app"}/orders"
-           style="display:inline-block;background:#1a56e8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px">
-          Review in Admin Panel →
-        </a>
-        <p style="color:#888;font-size:12px;margin-top:32px;border-top:1px solid #eee;padding-top:16px">
-          — AllMart automated alert
-        </p>
-      </div>`,
-  });
-
-  if (error) {
-    logger.error({ error }, "Admin payment alert email failed");
-  } else {
-    logger.info({ trackingCode: opts.trackingCode, adminEmail }, "Admin payment alert sent");
+  try {
+    await sendEmail({
+      to: adminEmail,
+      subject: `Payment screenshot uploaded — Order ${opts.trackingCode}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#fff">
+          <div style="border-bottom:2px solid #1a56e8;padding-bottom:16px;margin-bottom:24px">
+            <h1 style="color:#1a56e8;margin:0;font-size:24px">AllMart — Admin Alert</h1>
+          </div>
+          <p style="color:#111;font-size:16px;font-weight:600">A customer has uploaded a payment screenshot and is awaiting verification.</p>
+          <table style="width:100%;border-collapse:collapse;margin:20px 0;border:1px solid #eee;border-radius:8px;overflow:hidden">
+            <tr style="background:#f0f5ff">
+              <td style="padding:12px 16px;color:#666;font-size:13px;border-bottom:1px solid #eee;width:140px">Order ref</td>
+              <td style="padding:12px 16px;font-weight:bold;border-bottom:1px solid #eee">${opts.trackingCode}</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 16px;color:#666;font-size:13px;border-bottom:1px solid #eee">Customer</td>
+              <td style="padding:12px 16px;border-bottom:1px solid #eee">${opts.customerName} (${opts.customerEmail})</td>
+            </tr>
+            <tr style="background:#f0f5ff">
+              <td style="padding:12px 16px;color:#666;font-size:13px;border-bottom:1px solid #eee">Order total</td>
+              <td style="padding:12px 16px;font-weight:bold;border-bottom:1px solid #eee">${fmt}</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 16px;color:#666;font-size:13px;border-bottom:1px solid #eee">Shipping to</td>
+              <td style="padding:12px 16px;border-bottom:1px solid #eee">${opts.shippingAddress}</td>
+            </tr>
+            ${opts.paymentNote ? `
+            <tr style="background:#f0f5ff">
+              <td style="padding:12px 16px;color:#666;font-size:13px">Customer note</td>
+              <td style="padding:12px 16px;font-style:italic">${opts.paymentNote}</td>
+            </tr>` : ""}
+          </table>
+          <a href="${opts.adminUrl ?? "https://allmart.replit.app"}/orders"
+             style="display:inline-block;background:#1a56e8;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:8px">
+            Review in Admin Panel →
+          </a>
+          <p style="color:#888;font-size:12px;margin-top:32px;border-top:1px solid #eee;padding-top:16px">
+            — AllMart automated alert
+          </p>
+        </div>`,
+    });
+  } catch (err) {
+    logger.error({ err }, "Admin payment alert email failed");
   }
 }
+
+// ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
 
 router.post("/email/order-status", async (req: Request, res: Response) => {
   const { to, name, orderStatus, trackingCode, total, currency, shippingAddress } = req.body as {
@@ -159,14 +196,16 @@ router.post("/email/order-status", async (req: Request, res: Response) => {
 router.post("/email/test", async (req: Request, res: Response) => {
   const { to } = req.body as { to?: string };
   if (!to) { res.status(400).json({ error: "to required" }); return; }
-  const resend = getResend();
-  const { data, error } = await resend.emails.send({
-    from: FROM,
-    to: [to],
-    subject: "AllMart — Email test",
-    html: "<div style='font-family:sans-serif;padding:24px'><h2 style='color:#1a56e8'>AllMart</h2><p>This is a test email. If you received this, emails are working correctly!</p></div>",
-  });
-  res.json({ data, error });
+  try {
+    await sendEmail({
+      to,
+      subject: "AllMart — Email test",
+      html: "<div style='font-family:sans-serif;padding:24px'><h2 style='color:#1a56e8'>AllMart</h2><p>This is a test email. If you received this, emails are working correctly!</p></div>",
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Email failed", detail: String(err) });
+  }
 });
 
 export default router;
