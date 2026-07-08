@@ -230,10 +230,10 @@ export default function Home() {
   const saleProducts = (allProducts ?? []).slice(0, 8);
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-background">
+    <div className="flex flex-col min-h-[100dvh] bg-[#0D0B1A] dark:bg-[#0D0B1A] light:bg-[#F8F7FF]">
 
-      {/* ── Purple header ─────────────────────────────────────────────────────── */}
-      <section className="bg-primary px-4 pb-4 pt-safe">
+      {/* ── Purple header — rounded card floating on dark bg ───────────────────── */}
+      <section className="bg-primary px-4 pb-5 pt-safe rounded-b-[28px] shadow-xl shadow-primary/30">
         {/* Top bar: hamburger | greeting+title | actions */}
         <div className="flex items-center gap-3 pt-3 pb-3">
           <ShopDrawerInner />
