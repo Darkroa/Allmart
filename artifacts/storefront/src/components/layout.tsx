@@ -12,7 +12,6 @@ import {
 } from "@workspace/api-client-react";
 import {
   ShoppingBag,
-  MessageSquare,
   Package,
   Store,
   LogOut,
@@ -28,7 +27,7 @@ import {
   Tag,
   Zap,
   Cpu,
-  X,
+  Cpu as AiIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,7 +72,7 @@ function ShopDrawer() {
             <Store className="h-5 w-5 text-white" />
           </div>
           <div>
-            <p className="font-serif font-bold text-white text-lg leading-tight">Shop</p>
+            <p className="font-bold text-white text-lg leading-tight">Shop</p>
             <p className="text-xs text-white/70">Browse AllMart</p>
           </div>
         </div>
@@ -81,7 +80,10 @@ function ShopDrawer() {
         {/* Nav items */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {SHOP_NAV.map((item) => {
-            const active = location === item.href || (item.href !== "/" && location.startsWith(item.href.split("?")[0]));
+            const active =
+              location === item.href ||
+              (item.href !== "/" &&
+                location.startsWith(item.href.split("?")[0]));
             const ItemIcon = item.icon;
             return (
               <SheetClose asChild key={item.href}>
@@ -93,8 +95,16 @@ function ShopDrawer() {
                       : "text-foreground/80 hover:bg-muted hover:text-foreground"
                   }`}
                 >
-                  <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${active ? "bg-primary/15" : "bg-muted"}`}>
-                    <ItemIcon className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                  <span
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                      active ? "bg-primary/15" : "bg-muted"
+                    }`}
+                  >
+                    <ItemIcon
+                      className={`h-4 w-4 ${
+                        active ? "text-primary" : "text-muted-foreground"
+                      }`}
+                    />
                   </span>
                   {item.label}
                 </Link>
@@ -117,6 +127,90 @@ function ShopDrawer() {
   );
 }
 
+// ── Bottom tab bar (mirrors the mobile Expo tab bar) ──────────────────────────
+function BottomTabBar({
+  cartCount,
+  isStaff,
+}: {
+  cartCount: number;
+  isStaff: boolean;
+}) {
+  const [location] = useLocation();
+
+  const isActive = (href: string) =>
+    href === "/"
+      ? location === "/" || location === "/dashboard"
+      : location.startsWith(href);
+
+  const tabCls = (href: string) =>
+    `flex flex-col items-center justify-start pt-1 flex-1 gap-0.5 transition-colors ${
+      isActive(href) ? "text-primary" : "text-muted-foreground"
+    }`;
+
+  const labelCls = (href: string) =>
+    `text-[10px] font-medium leading-none mt-0.5 ${
+      isActive(href) ? "text-primary" : "text-muted-foreground"
+    }`;
+
+  return (
+    <nav className="fixed bottom-0 inset-x-0 z-50 h-16 bg-background/95 backdrop-blur border-t border-border/50 flex items-stretch">
+      {/* Shop */}
+      <Link href="/" className={tabCls("/")}>
+        <Home className="h-5 w-5" />
+        <span className={labelCls("/")}>Shop</span>
+      </Link>
+
+      {/* Search */}
+      <Link href="/products" className={tabCls("/products")}>
+        <Search className="h-5 w-5" />
+        <span className={labelCls("/products")}>Search</span>
+      </Link>
+
+      {/* Ask AI — floating centre button */}
+      <div className="flex flex-col items-center justify-start pt-1 flex-1">
+        <Link href="/assistant">
+          <div
+            className="flex items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/40"
+            style={{ width: 52, height: 52, marginTop: -20 }}
+          >
+            <AiIcon className="h-5 w-5 text-white" />
+          </div>
+        </Link>
+        <span
+          className={`text-[10px] font-medium leading-none mt-0.5 ${
+            isActive("/assistant") ? "text-primary" : "text-muted-foreground"
+          }`}
+        >
+          Ask AI
+        </span>
+      </div>
+
+      {/* My Orders */}
+      <Link
+        href={isStaff ? "/admin/orders" : "/orders"}
+        className={tabCls("/orders")}
+      >
+        <div className="relative">
+          <ShoppingBag className="h-5 w-5" />
+          {cartCount > 0 && (
+            <span className="absolute -top-1 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+              {cartCount > 9 ? "9+" : cartCount}
+            </span>
+          )}
+        </div>
+        <span className={labelCls("/orders")}>My Orders</span>
+      </Link>
+
+      {/* Account */}
+      <Link href="/account" className={tabCls("/account")}>
+        <UserCircle2 className="h-5 w-5" />
+        <span className={labelCls("/account")}>Account</span>
+      </Link>
+    </nav>
+  );
+}
+
+// ── Layout ─────────────────────────────────────────────────────────────────────
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -124,12 +218,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { data: meData } = useGetCurrentUser();
   const me = meData?.user ?? null;
 
-  const cartItemCount = cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
+  const cartItemCount =
+    cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
 
   const isHome = location === "/" || location === "/dashboard";
-  const isAssistant = location === "/assistant";
-  const isAuthPage = location === "/account";
-  const isStaff = me && (me.role === "admin" || me.role === "pm");
+  const isStaff = !!(me && (me.role === "admin" || me.role === "pm"));
+
+  // Hide bottom nav on auth / admin pages
+  const isAdminArea = location.startsWith("/admin");
+  const hideBottomNav = isAdminArea;
 
   async function handleSignOut() {
     await signOut();
@@ -143,11 +240,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }
 
   const navLink = (href: string, icon: React.ReactNode, label: string) => {
-    const active = location === href || (href !== "/" && location.startsWith(href));
+    const active =
+      location === href || (href !== "/" && location.startsWith(href));
     return (
       <Link
         href={href}
-        className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors hover:text-primary ${active ? "text-primary" : "text-muted-foreground"}`}
+        className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors hover:text-primary ${
+          active ? "text-primary" : "text-muted-foreground"
+        }`}
       >
         {icon}
         <span className="hidden md:inline">{label}</span>
@@ -157,11 +257,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
-      {/* Hide sticky header on home page — home provides its own mobile-style header */}
+      {/* Sticky header — hidden on home page which has its own purple header */}
       {!isHome && (
         <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container flex h-13 max-w-screen-2xl items-center gap-2 px-4">
-
             {/* Logo */}
             <Link href="/" className="flex items-center shrink-0 mr-2">
               <img
@@ -174,13 +273,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {/* Primary nav */}
             <nav className="flex items-center gap-0.5">
               <ShopDrawer />
-              {me && navLink("/orders", <Package className="h-4 w-4 shrink-0" />, "Orders")}
+              {me &&
+                navLink(
+                  "/orders",
+                  <Package className="h-4 w-4 shrink-0" />,
+                  "Orders"
+                )}
             </nav>
 
-            {/* Spacer */}
             <div className="flex-1" />
 
-            {/* Right-side actions */}
+            {/* Right actions */}
             <div className="flex items-center gap-1">
               <ThemeToggle />
 
@@ -193,38 +296,58 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       <DropdownMenuTrigger asChild>
                         <button className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/5 border border-primary/10 max-w-[130px] hover:bg-primary/10 transition-colors">
                           <UserCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span className="text-xs font-medium truncate">{me.name}</span>
+                          <span className="text-xs font-medium truncate">
+                            {me.name}
+                          </span>
                           <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
                         <DropdownMenuItem asChild>
-                          <Link href="/profile" className="flex items-center gap-2 cursor-pointer">
+                          <Link
+                            href="/profile"
+                            className="flex items-center gap-2 cursor-pointer"
+                          >
                             <UserCog className="h-4 w-4" /> Profile
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href="/referral" className="flex items-center gap-2 cursor-pointer">
+                          <Link
+                            href="/referral"
+                            className="flex items-center gap-2 cursor-pointer"
+                          >
                             <Users className="h-4 w-4" /> Referrals & Bonus
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href="/security" className="flex items-center gap-2 cursor-pointer">
+                          <Link
+                            href="/security"
+                            className="flex items-center gap-2 cursor-pointer"
+                          >
                             <Lock className="h-4 w-4" /> Security
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href="/notifications" className="flex items-center gap-2 cursor-pointer">
+                          <Link
+                            href="/notifications"
+                            className="flex items-center gap-2 cursor-pointer"
+                          >
                             <Bell className="h-4 w-4" /> Notifications
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href="/support" className="flex items-center gap-2 cursor-pointer">
+                          <Link
+                            href="/support"
+                            className="flex items-center gap-2 cursor-pointer"
+                          >
                             <LifeBuoy className="h-4 w-4" /> Support
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive gap-2 cursor-pointer">
+                        <DropdownMenuItem
+                          onClick={handleSignOut}
+                          className="text-destructive focus:text-destructive gap-2 cursor-pointer"
+                        >
                           <LogOut className="h-4 w-4" /> Sign out
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -245,7 +368,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </>
               ) : (
                 <Link href="/account">
-                  <Button size="sm" className="h-8 px-3 text-xs">Sign in</Button>
+                  <Button size="sm" className="h-8 px-3 text-xs">
+                    Sign in
+                  </Button>
                 </Link>
               )}
 
@@ -269,22 +394,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </header>
       )}
 
-      <main className="flex-1 flex flex-col">
+      {/* Extra bottom padding so content doesn't hide behind the tab bar */}
+      <main className={`flex-1 flex flex-col ${hideBottomNav ? "" : "pb-16"}`}>
         {children}
       </main>
 
-      {!isAssistant && !isAuthPage && (
-        <div className="fixed bottom-6 right-6 z-50">
-          <Link href="/assistant">
-            <Button
-              size="lg"
-              className="rounded-full shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all gap-2 h-12 px-5 text-sm animate-in slide-in-from-bottom-4 fade-in duration-500"
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">Ask AI</span>
-            </Button>
-          </Link>
-        </div>
+      {/* Mobile-style bottom tab bar */}
+      {!hideBottomNav && (
+        <BottomTabBar cartCount={cartItemCount} isStaff={isStaff} />
       )}
     </div>
   );
