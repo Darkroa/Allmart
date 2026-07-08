@@ -1,14 +1,40 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
+import fs from "fs";
+import path from "path";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
+import {
+  isLocalMode,
+  ensureUploadsDir,
+  newLocalObjectPath,
+  LOCAL_OBJECT_PREFIX,
+  LOCAL_UPLOADS_DIR,
+} from "../lib/localStorageFallback";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
+
+/** Validates that a string is a canonical UUID v4 (no path traversal possible). */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function isSafeUuid(s: string): boolean {
+  return UUID_RE.test(s);
+}
+
+/** Resolve disk path and double-check it is inside the uploads directory. */
+function safeLocalPath(uuid: string): string | null {
+  if (!isSafeUuid(uuid)) return null;
+  const resolved = path.resolve(LOCAL_UPLOADS_DIR, uuid);
+  if (!resolved.startsWith(path.resolve(LOCAL_UPLOADS_DIR) + path.sep) &&
+      resolved !== path.resolve(LOCAL_UPLOADS_DIR)) return null;
+  return resolved;
+}
+
+const LOCAL_UPLOAD_MAX_BYTES = 20 * 1024 * 1024; // 20 MB hard limit
 
 /**
  * POST /storage/uploads/request-url
@@ -27,6 +53,26 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
   try {
     const { name, size, contentType } = parsed.data;
 
+    // ── Local disk fallback when object storage is not configured ──────────
+    if (isLocalMode()) {
+      ensureUploadsDir();
+      const objectPath = newLocalObjectPath();
+      const uuid = objectPath.replace(LOCAL_OBJECT_PREFIX, "");
+      const proto = req.headers["x-forwarded-proto"] ?? req.protocol;
+      const host  = req.headers["x-forwarded-host"]  ?? req.get("host") ?? "";
+      const base  = `${proto}://${host}`;
+      const uploadURL = `${base}/api/storage/local/${uuid}`;
+      res.json(
+        RequestUploadUrlResponse.parse({
+          uploadURL,
+          objectPath,
+          metadata: { name, size, contentType },
+        }),
+      );
+      return;
+    }
+
+    // ── Replit Object Storage ───────────────────────────────────────────────
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
@@ -42,6 +88,69 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     res.status(500).json({ error: "Failed to generate upload URL" });
   }
 });
+
+/**
+ * PUT /storage/local/:uuid
+ *
+ * Local-mode upload endpoint. Receives raw file bytes and saves them to disk.
+ * Only accepts canonical UUID v4 filenames issued by request-url (path-traversal safe).
+ * Hard body limit: 20 MB.
+ */
+router.put("/storage/local/:uuid", (req: Request, res: Response) => {
+  if (!isLocalMode()) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const diskPath = safeLocalPath(req.params.uuid);
+  if (!diskPath) {
+    res.status(400).json({ error: "Invalid upload identifier" });
+    return;
+  }
+
+  ensureUploadsDir();
+
+  let received = 0;
+  const ws = fs.createWriteStream(diskPath);
+
+  req.on("data", (chunk: Buffer) => {
+    received += chunk.length;
+    if (received > LOCAL_UPLOAD_MAX_BYTES) {
+      ws.destroy();
+      fs.unlink(diskPath, () => {});
+      if (!res.headersSent) res.status(413).json({ error: "File too large (max 20 MB)" });
+    }
+  });
+
+  req.pipe(ws);
+  ws.on("finish", () => { if (!res.headersSent) res.status(200).json({ ok: true }); });
+  ws.on("error", (err) => {
+    req.log.error({ err }, "Local upload write error");
+    if (!res.headersSent) res.status(500).json({ error: "Upload failed" });
+  });
+});
+
+/**
+ * GET /storage/local/:uuid  — serve a locally-stored upload file.
+ * GET /storage/objects/local-objects/:uuid — alias used when imageUrl is stored
+ *   as a /local-objects/<uuid> path (set during request-url in local mode).
+ */
+function serveLocalFile(req: Request, res: Response) {
+  const diskPath = safeLocalPath(req.params.uuid);
+  if (!diskPath) {
+    res.status(400).json({ error: "Invalid file identifier" });
+    return;
+  }
+  if (!fs.existsSync(diskPath)) {
+    res.status(404).json({ error: "File not found" });
+    return;
+  }
+  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  res.sendFile(diskPath);
+}
+
+router.get("/storage/local/:uuid", serveLocalFile);
+router.get("/storage/objects/local-objects/:uuid", serveLocalFile);
 
 /**
  * GET /storage/public-objects/*
