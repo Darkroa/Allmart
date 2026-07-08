@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Search, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { BagLogo } from "@/components/bag-logo";
 import { ProductCard } from "@/components/product-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FeaturedCarousel } from "@/components/featured-carousel";
@@ -38,7 +39,12 @@ export default function Landing() {
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-primary/80 pointer-events-none" />
 
-        <div className="container relative z-10 max-w-3xl mx-auto text-center space-y-7">
+        <div className="container relative z-10 max-w-3xl mx-auto text-center space-y-6">
+          {/* Brand logo */}
+          <div className="flex justify-center">
+            <BagLogo size={72} />
+          </div>
+
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 border border-white/20 px-4 py-1.5 text-sm font-medium text-white">
             <Sparkles className="h-3.5 w-3.5" /> AI-Powered Shopping
           </span>
@@ -70,10 +76,10 @@ export default function Landing() {
             </div>
           </form>
 
-          {/* Trending chips */}
+          {/* Trending — single scrollable line */}
           {summary?.trendingSearches && summary.trendingSearches.length > 0 && (
-            <div className="pt-4 flex flex-wrap items-center justify-center gap-2">
-              <span className="text-xs text-white/50">Trending:</span>
+            <div className="pt-1 flex items-center gap-1.5 overflow-x-auto scrollbar-none max-w-xl mx-auto">
+              <span className="text-[10px] text-white/40 shrink-0 font-medium">Trending:</span>
               {summary.trendingSearches.map(term => (
                 <button
                   key={term}
@@ -81,7 +87,7 @@ export default function Landing() {
                     sessionStorage.setItem("initial_assistant_query", `I'm looking for ${term}`);
                     setLocation("/account");
                   }}
-                  className="text-xs px-3 py-1.5 rounded-full bg-white/15 border border-white/20 text-white hover:bg-white/25 transition-all"
+                  className="text-[10px] px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-white/70 hover:bg-white/20 transition-all whitespace-nowrap shrink-0"
                 >
                   {term}
                 </button>
@@ -92,7 +98,7 @@ export default function Landing() {
       </section>
 
       {/* ── Featured Carousel ─────────────────────────────────────────────── */}
-      <section className="py-12 container max-w-screen-xl mx-auto px-6">
+      <section className="pt-6 pb-10 container max-w-screen-xl mx-auto px-6">
         <div className="flex items-end justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Featured</h2>

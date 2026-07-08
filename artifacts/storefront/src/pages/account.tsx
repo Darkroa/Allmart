@@ -15,7 +15,7 @@ type Mode = "signin" | "signup" | "forgot";
 const PURPLE = "#8B7BD8";
 const LAVENDER_BG = "#EDE8F8";
 const CARD_BG = "#FAF9FF";
-const ROSE_GOLD = "#C9956A";
+const ROSE_GOLD = "#8B7BD8";
 const TEXT_DARK = "#2D2248";
 const TEXT_MUTED = "#9B93B8";
 const WHITE = "#FFFFFF";
@@ -44,11 +44,11 @@ function BagLogo() {
         width: 90,
         height: 88,
         borderRadius: 18,
-        background: `linear-gradient(145deg, ${ROSE_GOLD}, #B07A55)`,
+        background: `linear-gradient(145deg, ${ROSE_GOLD}, #6C5BB5)`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        boxShadow: "0 12px 32px rgba(139,94,60,0.35)",
+        boxShadow: "0 12px 32px rgba(139,123,216,0.40)",
         position: "relative",
         zIndex: 2,
       }}>

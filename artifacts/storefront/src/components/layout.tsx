@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BagLogo } from "@/components/bag-logo";
 import { Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -227,7 +228,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // Hide bottom nav on landing, auth, and admin pages
   const isLanding = location === "/";
   const isAdminArea = location.startsWith("/admin");
-  const hideBottomNav = isLanding || isAdminArea;
+  const isAuthPage = location === "/account" || location.startsWith("/verify") || location.startsWith("/reset");
+  const hideBottomNav = isLanding || isAdminArea || isAuthPage;
+  const hideHeader = isHome || isAuthPage;
 
   async function handleSignOut() {
     await signOut();
@@ -258,17 +261,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
-      {/* Sticky header — hidden on home page which has its own purple header */}
-      {!isHome && (
+      {/* Sticky header — hidden on home, auth, and landing pages */}
+      {!hideHeader && (
         <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container flex h-13 max-w-screen-2xl items-center gap-2 px-4">
             {/* Logo */}
             <Link href="/" className="flex items-center shrink-0 mr-2">
-              <img
-                src="/logo.jpeg"
-                alt="AllMart"
-                className="h-9 w-9 rounded-lg object-cover"
-              />
+              <BagLogo size={32} />
             </Link>
 
             {/* Primary nav */}
