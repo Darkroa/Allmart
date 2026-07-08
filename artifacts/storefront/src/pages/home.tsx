@@ -6,39 +6,26 @@ import {
   useListCategories,
   useGetCurrentUser,
   useGetCart,
-  signOut,
-  getGetCurrentUserQueryKey,
-  getGetCartQueryKey,
-  getListOrdersQueryKey,
-  getListChatMessagesQueryKey,
 } from "@workspace/api-client-react";
 import type { Product } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight, Search, Sparkles, ChevronDown, ChevronUp,
-  Store, Bell, ShoppingCart, LogOut, Lock, Users, UserCog,
-  LifeBuoy, UserCircle2, Menu, LayoutGrid, Zap, Truck, Tag,
+  Store, ShoppingCart, LayoutGrid, Zap, Truck, Tag,
   Watch, Mountain, Footprints, Heart, Laptop, Shirt, Dumbbell,
   UtensilsCrossed, BookOpen, Gamepad2, HeartPulse, Plane, PawPrint,
-  Gem, Home as HomeIcon, Music2, Car, Sun, Moon, Package,
+  Gem, Home as HomeIcon, Music2, Car, Sun, Moon,
 } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StaffSidebarTrigger } from "@/components/staff-sidebar";
+import { NotificationsBell } from "@/components/notifications-bell";
 import {
   Sheet,
   SheetContent,
   SheetTrigger,
   SheetClose,
 } from "@/components/ui/sheet";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useQueryClient } from "@tanstack/react-query";
 
 // ── Category icon mapping ──────────────────────────────────────────────────────
 type LucideIcon = React.ElementType;
@@ -93,8 +80,11 @@ function ShopDrawerInner() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <button className="h-8 w-8 flex items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 transition-colors shrink-0">
-          <Menu className="h-4 w-4 text-white" />
+        <button
+          className="h-9 w-9 flex items-center justify-center rounded-xl bg-gradient-to-br from-[#8B7BD8] to-[#6C5BB5] shadow-md shadow-primary/40 hover:brightness-110 active:scale-95 transition-all shrink-0"
+          aria-label="Open menu"
+        >
+          <span className="text-white font-extrabold text-base leading-none" style={{ fontFamily: "sans-serif" }}>A</span>
         </button>
       </SheetTrigger>
       <SheetContent side="left" className="w-72 p-0 flex flex-col">
@@ -167,7 +157,6 @@ function discountPct(product: Product): number | null {
 export default function Home() {
   const [, setLocation] = useLocation();
   const [query, setQuery] = useState("");
-  const queryClient = useQueryClient();
   const { h, m, s } = useCountdown(2);
 
   const { data: categories } = useListCategories();
@@ -200,17 +189,6 @@ export default function Home() {
       setLocation("/assistant");
     }
   };
-
-  async function handleSignOut() {
-    await signOut();
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: getGetCurrentUserQueryKey() }),
-      queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() }),
-      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() }),
-      queryClient.invalidateQueries({ queryKey: getListChatMessagesQueryKey() }),
-    ]);
-    setLocation("/");
-  }
 
   // categories with products
   const categoryGroups = (() => {
@@ -250,6 +228,9 @@ export default function Home() {
 
           {/* Right actions */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Notifications */}
+            {me && !isStaff && <NotificationsBell enabled={true} variant="home" />}
+
             {/* Theme toggle */}
             <button
               onClick={toggleDark}
@@ -270,41 +251,13 @@ export default function Home() {
               </button>
             </Link>
 
-            {/* Profile / user menu */}
-            {me ? (
-              isStaff ? (
-                <StaffSidebarTrigger role={me.role as "admin" | "pm"} name={me.name} />
-              ) : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="flex h-8 w-8 items-center justify-center rounded-full bg-white/25 ring-2 ring-white hover:bg-white/35 transition-colors font-bold text-white text-sm">
-                      {me.name ? me.name.charAt(0).toUpperCase() : <UserCircle2 className="h-4 w-4 text-white" />}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuItem asChild>
-                      <Link href="/profile" className="flex items-center gap-2 cursor-pointer"><UserCog className="h-4 w-4" /> Profile</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/orders" className="flex items-center gap-2 cursor-pointer"><Package className="h-4 w-4" /> My Orders</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/referral" className="flex items-center gap-2 cursor-pointer"><Users className="h-4 w-4" /> Referrals</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/security" className="flex items-center gap-2 cursor-pointer"><Lock className="h-4 w-4" /> Security</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/support" className="flex items-center gap-2 cursor-pointer"><LifeBuoy className="h-4 w-4" /> Support</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive gap-2 cursor-pointer">
-                      <LogOut className="h-4 w-4" /> Sign out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )
-            ) : (
+            {/* Staff admin access (kept — required for admin tools) */}
+            {me && isStaff && (
+              <StaffSidebarTrigger role={me.role as "admin" | "pm"} name={me.name} />
+            )}
+
+            {/* Sign in (guests only) */}
+            {!me && (
               <Link href="/account">
                 <button className="flex h-8 items-center gap-1 rounded-full bg-white/20 hover:bg-white/30 px-3 text-[11px] font-semibold text-white transition-colors">
                   Sign in
