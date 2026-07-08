@@ -326,7 +326,7 @@ export default function UserDashboard() {
         {topCats.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold">Popular Categories</h2>
+              <h5 className="text-base font-bold">Popular Categories</h5>
               <Link href="/products"><span className="text-xs font-semibold text-primary hover:underline">See all</span></Link>
             </div>
             <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
