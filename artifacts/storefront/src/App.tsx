@@ -120,6 +120,7 @@ function Router() {
         <Route path="/admin/visitors" component={() => <Admin section="visitors" />} />
         <Route path="/admin/telegram" component={() => <Admin section="telegram" />} />
         <Route path="/admin/referrals" component={() => <Admin section="referrals" />} />
+        <Route path="/admin/flash-sale" component={() => <Admin section="flash-sale" />} />
         <Route path="/pm" component={() => <PMConsole section="dashboard" />} />
         <Route path="/pm/orders" component={() => <PMConsole section="orders" />} />
         <Route path="/pm/catalog" component={() => <PMConsole section="catalog" />} />

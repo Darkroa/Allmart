@@ -37,6 +37,7 @@ import {
   Eye,
   Send,
   Gift,
+  Zap,
 } from "lucide-react";
 
 type NavItem = {
@@ -51,6 +52,7 @@ const ADMIN_ITEMS: NavItem[] = [
   { href: "/admin/orders", label: "Orders", icon: Package },
   { href: "/admin/catalog", label: "Add product", icon: PackagePlus },
   { href: "/admin/products", label: "Manage products", icon: LayoutList },
+  { href: "/admin/flash-sale", label: "Flash sale", icon: Zap },
   { href: "/admin/cashback", label: "Cashback codes", icon: Tag },
   { href: "/admin/landing-pages", label: "Landing pages", icon: Globe },
   { href: "/admin/notifications", label: "Push notification", icon: Bell },

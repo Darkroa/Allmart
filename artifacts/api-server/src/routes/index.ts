@@ -25,6 +25,7 @@ import ordersExportRouter from "./orders-export";
 import profileRouter from "./profile";
 import referralRouter from "./referral";
 import adminReferralsRouter from "./admin-referrals";
+import flashSaleRouter from "./flash-sale";
 
 const router: IRouter = Router();
 
@@ -54,5 +55,6 @@ router.use(ordersExportRouter);
 router.use(profileRouter);
 router.use(referralRouter);
 router.use(adminReferralsRouter);
+router.use(flashSaleRouter);
 
 export default router;

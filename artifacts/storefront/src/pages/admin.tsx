@@ -17,6 +17,7 @@ import { AdminVisitors } from "@/components/admin-visitors";
 import { AdminTelegram } from "@/components/admin-telegram";
 import { CsvImportExport } from "@/components/csv-import-export";
 import { AdminReferrals } from "@/components/admin-referrals";
+import { AdminFlashSaleManager } from "@/components/admin-flash-sale";
 import {
   ShieldCheck,
   Users as UsersIcon,
@@ -32,6 +33,7 @@ import {
   Eye,
   Send,
   Gift,
+  Zap,
 } from "lucide-react";
 
 type Section =
@@ -48,7 +50,8 @@ type Section =
   | "landing-pages"
   | "visitors"
   | "telegram"
-  | "referrals";
+  | "referrals"
+  | "flash-sale";
 
 export default function Admin({ section = "dashboard" }: { section?: Section }) {
   const [, setLocation] = useLocation();
@@ -173,6 +176,13 @@ export default function Admin({ section = "dashboard" }: { section?: Section }) 
         <>
           <StaffPageHeader icon={Gift} title="Referrals" description="Manage referral bonuses, signup rewards, and view all referral records." />
           <AdminReferrals />
+        </>
+      )}
+
+      {section === "flash-sale" && (
+        <>
+          <StaffPageHeader icon={Zap} title="Flash sale" description="Pick the products on sale and set the countdown shown on the storefront." />
+          <AdminFlashSaleManager />
         </>
       )}
     </div>

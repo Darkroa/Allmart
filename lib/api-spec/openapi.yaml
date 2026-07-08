@@ -496,6 +496,49 @@ paths:
         "204":
           description: Deleted
 
+  /flash-sale:
+    get:
+      operationId: getFlashSale
+      tags: [flash-sale]
+      summary: Get the active flash sale (public). Returns enabled=false when admin has not configured one.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashSale"
+
+  /admin/flash-sale:
+    get:
+      operationId: getAdminFlashSale
+      tags: [flash-sale]
+      summary: Get flash sale configuration (admin only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashSale"
+    put:
+      operationId: updateAdminFlashSale
+      tags: [flash-sale]
+      summary: Create/update the flash sale configuration (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFlashSaleRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlashSale"
+
   /cashback/validate:
     post:
       operationId: validateCashbackCode
@@ -870,6 +913,30 @@ components:
               orders: { type: integer }
             required: [date, total, orders]
       required: [todayTotal, monthTotal, allTimeTotal, todayOrders, monthOrders, allTimeOrders, dailyChart]
+
+    FlashSale:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        endsAt: { type: string, nullable: true }
+        productIds:
+          type: array
+          items: { type: integer }
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+      required: [enabled, endsAt, productIds, products]
+
+    UpdateFlashSaleRequest:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        endsAt: { type: string, nullable: true }
+        productIds:
+          type: array
+          items: { type: integer }
+      required: [enabled, productIds]
 
     CashbackCode:
       type: object

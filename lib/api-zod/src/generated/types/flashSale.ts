@@ -7,8 +7,9 @@
  */
 import type { Product } from "./product";
 
-export interface CartItem {
-  productId: number;
-  quantity: number;
-  product: Product;
+export interface FlashSale {
+  enabled: boolean;
+  endsAt: string | null;
+  productIds: number[];
+  products: Product[];
 }

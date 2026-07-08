@@ -6,6 +6,7 @@ import {
   useListCategories,
   useGetCurrentUser,
   useGetCart,
+  useGetFlashSale,
 } from "@workspace/api-client-react";
 import type { Product } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -133,17 +134,19 @@ function ShopDrawerInner() {
 }
 
 // ── Countdown timer ────────────────────────────────────────────────────────────
-function useCountdown(targetHours = 2) {
-  const end = useRef(Date.now() + targetHours * 3600_000);
-  const [left, setLeft] = useState(end.current - Date.now());
+function useCountdown(endsAt: string | null) {
+  const endMs = endsAt ? new Date(endsAt).getTime() : null;
+  const [left, setLeft] = useState(endMs ? Math.max(0, endMs - Date.now()) : 0);
   useEffect(() => {
-    const id = setInterval(() => setLeft(Math.max(0, end.current - Date.now())), 1000);
+    if (!endMs) { setLeft(0); return; }
+    setLeft(Math.max(0, endMs - Date.now()));
+    const id = setInterval(() => setLeft(Math.max(0, endMs - Date.now())), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [endMs]);
   const h = Math.floor(left / 3600_000).toString().padStart(2, "0");
   const m = Math.floor((left % 3600_000) / 60_000).toString().padStart(2, "0");
   const s = Math.floor((left % 60_000) / 1_000).toString().padStart(2, "0");
-  return { h, m, s };
+  return { h, m, s, expired: endMs !== null && left <= 0 };
 }
 
 // ── Discount pill helper ───────────────────────────────────────────────────────
@@ -157,15 +160,18 @@ function discountPct(product: Product): number | null {
 export default function Home() {
   const [, setLocation] = useLocation();
   const [query, setQuery] = useState("");
-  const { h, m, s } = useCountdown(2);
 
   const { data: categories } = useListCategories();
   const { data: allProducts, isLoading: isProductsLoading } = useListProducts();
   const { data: meData } = useGetCurrentUser();
   const { data: cart } = useGetCart();
+  const { data: flashSale } = useGetFlashSale();
   const me = meData?.user ?? null;
   const isStaff = me && (me.role === "admin" || me.role === "pm");
   const cartItemCount = cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
+
+  const flashSaleLive = !!flashSale?.enabled && (flashSale?.products?.length ?? 0) > 0;
+  const { h, m, s } = useCountdown(flashSaleLive ? flashSale!.endsAt : null);
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -204,8 +210,8 @@ export default function Home() {
       .map(c => ({ slug: c.slug, name: c.name, products: map.get(c.slug) ?? [] }));
   })();
 
-  // Sale products (up to 8 for flash sale row)
-  const saleProducts = (allProducts ?? []).slice(0, 8);
+  // Sale products — only the ones admin selected for the flash sale
+  const saleProducts = flashSale?.products ?? [];
 
   return (
     <div className="flex flex-col min-h-[100dvh] bg-[#0D0B1A] dark:bg-[#0D0B1A] light:bg-[#F8F7FF]">
@@ -235,10 +241,10 @@ export default function Home() {
             {/* Theme toggle */}
             <button
               onClick={toggleDark}
-              className="flex h-9 w-9 items-center justify-center text-white/80 hover:text-white transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 transition-colors"
               aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
-              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
 
             {/* Staff admin access (kept — required for admin tools) */}
@@ -289,7 +295,7 @@ export default function Home() {
             )}
           </div>
         </form>
-        <p className="text-xs font-semibold text-white/80 leading-tight mt-3">
+        <p className="text-xs font-semibold text-white/80 leading-tight mt-3 text-center">
           Find your perfect product <span className="text-white">With AI</span>
         </p>
       </section>
@@ -298,42 +304,39 @@ export default function Home() {
       <div className="max-w-screen-xl mx-auto w-full px-4 space-y-6 py-5 pb-12">
 
         {/* Promo banner */}
-        <div className="relative overflow-hidden rounded-2xl bg-[#1e1150] dark:bg-[#160d40] px-6 py-5 flex items-center justify-between shadow-xl">
-          <div className="absolute -right-6 -top-6 h-36 w-36 rounded-full bg-primary/20 blur-2xl pointer-events-none" />
-          <div className="relative z-10 space-y-1.5">
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white/90">
-              🔥 Limited Time
-            </span>
-            <p className="text-2xl font-extrabold text-white">Mega Sale</p>
-            <p className="text-sm text-white/70">Up to 60% Off</p>
-            <Link href="/products?sort=sale">
-              <button className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-primary hover:bg-white/90 transition-colors">
-                Shop Now <ArrowRight className="h-3 w-3" />
-              </button>
-            </Link>
+        <div className="relative overflow-hidden rounded-2xl bg-[#1e1150] dark:bg-[#160d40] px-5 py-4 shadow-xl">
+          <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-primary/20 blur-2xl pointer-events-none" />
+          <div className="relative z-10 flex items-center justify-between mb-4">
+            <div className="space-y-1">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white/90">
+                🔥 Limited Time
+              </span>
+              <p className="text-xl font-extrabold text-white leading-tight">Mega Sale</p>
+              <p className="text-xs text-white/70">Up to 60% Off</p>
+            </div>
+            <div className="text-4xl select-none">🛍️</div>
           </div>
-          <div className="relative z-10 text-5xl select-none">🛍️</div>
-        </div>
 
-        {/* Quick-nav: 4 dark icon buttons */}
-        <div className="grid grid-cols-4 gap-3">
-          {([
-            { href: "/products",          icon: LayoutGrid, label: "Categories" },
-            { href: "/products?sort=sale", icon: Zap,        label: "Flash Sale" },
-            { href: "/products?sort=new",  icon: Truck,       label: "Free Ship" },
-            { href: "/products?sort=featured", icon: Tag,     label: "Vouchers" },
-          ] as const).map(({ href, icon: Icon, label }) => (
-            <Link key={href} href={href}>
-              <button className="flex flex-col items-center gap-2 w-full group">
-                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1e1150] dark:bg-[#1a0f45] group-hover:bg-primary/80 transition-colors shadow-sm">
-                  <Icon className="h-5 w-5 text-primary dark:text-primary-foreground" />
-                </span>
-                <span className="text-[10px] text-center font-medium text-foreground/70 leading-tight">
-                  {label}
-                </span>
-              </button>
-            </Link>
-          ))}
+          {/* Quick-nav: 4 icon buttons, inside the card */}
+          <div className="relative z-10 grid grid-cols-4 gap-2">
+            {([
+              { href: "/products",          icon: LayoutGrid, label: "Categories" },
+              { href: "/products?sort=sale", icon: Zap,        label: "Flash Sale" },
+              { href: "/products?sort=new",  icon: Truck,       label: "Free Ship" },
+              { href: "/products?sort=featured", icon: Tag,     label: "Vouchers" },
+            ] as const).map(({ href, icon: Icon, label }) => (
+              <Link key={href} href={href}>
+                <button className="flex flex-col items-center gap-1.5 w-full group">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 group-hover:bg-white/20 transition-colors">
+                    <Icon className="h-4 w-4 text-white" />
+                  </span>
+                  <span className="text-[9px] text-center font-medium text-white/70 leading-tight">
+                    {label}
+                  </span>
+                </button>
+              </Link>
+            ))}
+          </div>
         </div>
 
         {/* Popular Categories – horizontal scroll, icon pills */}
@@ -366,78 +369,78 @@ export default function Home() {
           </div>
         )}
 
-        {/* Flash Sale */}
-        <div>
-          {/* Title + countdown + see-all — all on one line */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <h2 className="text-base font-bold flex items-center gap-1 shrink-0">
-                <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" /> Flash Sale
-              </h2>
-              <span className="text-[10px] text-foreground/55 shrink-0">Ends in</span>
-              <div className="flex items-center gap-1">
-                {[h, m, s].map((unit, i) => (
-                  <span key={i} className="flex items-center gap-1">
-                    <span className="flex h-5 min-w-[22px] items-center justify-center rounded bg-primary text-white text-[10px] font-bold px-1">
-                      {unit}
+        {/* Flash Sale — only shown once admin has configured & enabled one */}
+        {flashSaleLive && (
+          <div>
+            {/* Title + countdown + see-all — all on one line */}
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="text-base font-bold flex items-center gap-1 shrink-0">
+                  <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" /> Flash Sale
+                </h2>
+                <span className="text-[10px] text-foreground/55 shrink-0">Ends in</span>
+                <div className="flex items-center gap-1">
+                  {[h, m, s].map((unit, i) => (
+                    <span key={i} className="flex items-center gap-1">
+                      <span className="flex h-5 min-w-[22px] items-center justify-center rounded bg-primary text-white text-[10px] font-bold px-1">
+                        {unit}
+                      </span>
+                      {i < 2 && <span className="text-primary font-bold text-[10px] leading-none">:</span>}
                     </span>
-                    {i < 2 && <span className="text-primary font-bold text-[10px] leading-none">:</span>}
-                  </span>
+                  ))}
+                </div>
+              </div>
+              <Link href="/products?sort=sale">
+                <span className="text-xs font-semibold text-primary hover:underline shrink-0 ml-2">See all</span>
+              </Link>
+            </div>
+
+            {/* Products */}
+            {isProductsLoading ? (
+              <div className="flex gap-3 overflow-x-auto pb-1">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="shrink-0 w-36 space-y-2">
+                    <Skeleton className="h-36 w-36 rounded-2xl" />
+                    <Skeleton className="h-3 w-28" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
                 ))}
               </div>
-            </div>
-            <Link href="/products?sort=sale">
-              <span className="text-xs font-semibold text-primary hover:underline shrink-0 ml-2">See all</span>
-            </Link>
-          </div>
-
-          {/* Products */}
-          {isProductsLoading ? (
-            <div className="flex gap-3 overflow-x-auto pb-1">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="shrink-0 w-36 space-y-2">
-                  <Skeleton className="h-36 w-36 rounded-2xl" />
-                  <Skeleton className="h-3 w-28" />
-                  <Skeleton className="h-3 w-20" />
-                </div>
-              ))}
-            </div>
-          ) : saleProducts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No products yet.</p>
-          ) : (
-            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
-              {saleProducts.map(p => {
-                const pct = discountPct(p) ?? (10 + (p.id % 20));
-                return (
-                  <Link key={p.id} href={`/products/${p.id}`}>
-                    <div className="relative shrink-0 w-36 group cursor-pointer">
-                      <span className="absolute top-2 left-2 z-10 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                        -{pct}%
-                      </span>
-                      <div className="overflow-hidden rounded-2xl bg-muted aspect-square mb-2">
-                        {p.imageUrl ? (
-                          <img
-                            src={p.imageUrl}
-                            alt={p.name}
-                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-muted-foreground">
-                            <ShoppingCart className="h-8 w-8" />
-                          </div>
-                        )}
+            ) : (
+              <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+                {saleProducts.map(p => {
+                  const pct = discountPct(p) ?? (10 + (p.id % 20));
+                  return (
+                    <Link key={p.id} href={`/products/${p.id}`}>
+                      <div className="relative shrink-0 w-36 group cursor-pointer">
+                        <span className="absolute top-2 left-2 z-10 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                          -{pct}%
+                        </span>
+                        <div className="overflow-hidden rounded-2xl bg-muted aspect-square mb-2">
+                          {p.imageUrl ? (
+                            <img
+                              src={p.imageUrl}
+                              alt={p.name}
+                              className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center text-muted-foreground">
+                              <ShoppingCart className="h-8 w-8" />
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs font-semibold text-foreground leading-tight line-clamp-2 mb-0.5">{p.name}</p>
+                        <p className="text-sm font-bold text-primary">
+                          {p.currency === "NGN" ? "₦" : p.currency}{p.price.toLocaleString()}
+                        </p>
                       </div>
-                      <p className="text-xs font-semibold text-foreground leading-tight line-clamp-2 mb-0.5">{p.name}</p>
-                      <p className="text-sm font-bold text-primary">
-                        {p.currency === "NGN" ? "₦" : p.currency}{p.price.toLocaleString()}
-                      </p>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Category product rows */}
         {categoryGroups.length === 0 && !isProductsLoading ? (
