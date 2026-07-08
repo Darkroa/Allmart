@@ -210,15 +210,15 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-[100dvh] bg-[#0D0B1A] dark:bg-[#0D0B1A] light:bg-[#F8F7FF]">
 
-      {/* ── Purple header — rounded card floating on dark bg ───────────────────── */}
-      <section className="bg-primary px-4 pb-8 pt-safe rounded-b-[32px] shadow-xl shadow-primary/30">
-        {/* Top bar: hamburger | greeting+title | actions */}
-        <div className="flex items-center gap-3 pt-3 pb-3">
+      {/* ── Header — black card with purple accent strip underneath ───────────── */}
+      <section className="bg-[#0B0A14] px-4 pb-5 pt-safe">
+        {/* Top bar: logo | greeting+title | actions */}
+        <div className="flex items-center gap-3 pt-3 pb-4">
           <ShopDrawerInner />
 
           {/* Greeting + title (compact, inline) */}
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] text-white/70 font-medium leading-none mb-0.5">
+            <p className="text-[11px] text-white/50 font-medium leading-none mb-0.5">
               {greeting()}{me ? `, ${me.name.split(" ")[0]}` : ""} 👋
             </p>
             <p className="text-sm font-bold text-white leading-tight truncate">
@@ -227,29 +227,22 @@ export default function Home() {
           </div>
 
           {/* Right actions */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {/* Notifications */}
-            {me && !isStaff && <NotificationsBell enabled={true} variant="home" />}
+            {me && !isStaff && (
+              <span className="[&_button]:bg-transparent [&_button]:hover:bg-white/10 [&_svg]:text-white/80">
+                <NotificationsBell enabled={true} variant="home" />
+              </span>
+            )}
 
             {/* Theme toggle */}
             <button
               onClick={toggleDark}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors"
+              className="flex h-9 w-9 items-center justify-center text-white/80 hover:text-white transition-colors"
+              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
-              {darkMode ? <Sun className="h-4 w-4 text-white" /> : <Moon className="h-4 w-4 text-white" />}
+              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
-
-            {/* Cart */}
-            <Link href="/cart">
-              <button className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
-                <ShoppingCart className="h-4 w-4 text-white" />
-                {cartItemCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-[14px] w-[14px] items-center justify-center rounded-full bg-orange-400 text-[9px] font-bold text-white">
-                    {cartItemCount > 9 ? "9+" : cartItemCount}
-                  </span>
-                )}
-              </button>
-            </Link>
 
             {/* Staff admin access (kept — required for admin tools) */}
             {me && isStaff && (
@@ -259,17 +252,29 @@ export default function Home() {
             {/* Sign in (guests only) */}
             {!me && (
               <Link href="/account">
-                <button className="flex h-8 items-center gap-1 rounded-full bg-white/20 hover:bg-white/30 px-3 text-[11px] font-semibold text-white transition-colors">
+                <button className="flex h-9 items-center gap-1 rounded-full bg-primary hover:bg-primary/90 px-4 text-[13px] font-semibold text-white transition-colors">
                   Sign in
                 </button>
               </Link>
             )}
+
+            {/* Cart */}
+            <Link href="/cart">
+              <button className="relative flex h-9 w-9 items-center justify-center rounded-full border border-white/25 hover:border-white/40 transition-colors">
+                <ShoppingCart className="h-4 w-4 text-white/80" />
+                {cartItemCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-[14px] w-[14px] items-center justify-center rounded-full bg-orange-400 text-[9px] font-bold text-white">
+                    {cartItemCount > 9 ? "9+" : cartItemCount}
+                  </span>
+                )}
+              </button>
+            </Link>
           </div>
         </div>
 
         {/* Search bar */}
         <form onSubmit={handleSearch}>
-          <div className="flex items-center bg-white/15 focus-within:bg-white/22 rounded-2xl px-4 py-2.5 gap-3 border border-white/20 transition-colors">
+          <div className="flex items-center bg-white/10 focus-within:bg-white/15 rounded-2xl px-4 py-2.5 gap-3 border border-white/15 transition-colors">
             <Search className="h-4 w-4 text-white/50 shrink-0" />
             <input
               type="text"
@@ -286,6 +291,9 @@ export default function Home() {
           </div>
         </form>
       </section>
+
+      {/* Purple accent strip under the header, like the reference design */}
+      <div className="h-1.5 w-full bg-gradient-to-r from-primary/70 via-primary to-primary/70" />
 
       {/* ── Body ──────────────────────────────────────────────────────────────── */}
       <div className="max-w-screen-xl mx-auto w-full px-4 space-y-6 py-5 pb-12">
