@@ -1,154 +1,235 @@
-import { Link } from "wouter";
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
 import {
-  ShoppingBag,
-  Cpu,
-  Truck,
-  Shield,
-  Zap,
-  ArrowRight,
-  Star,
+  Search, Sparkles, ArrowRight, ShoppingBag,
+  Zap, Truck, Shield, LayoutGrid, Menu,
+  Watch, Mountain, Footprints, Heart, Laptop,
+  Shirt, Dumbbell, BookOpen, Gamepad2, Home as HomeIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet, SheetContent, SheetTrigger, SheetClose,
+} from "@/components/ui/sheet";
 
-const FEATURES = [
-  {
-    icon: Cpu,
-    title: "AI-Powered Shopping",
-    desc: "Ask our AI anything — product recommendations, comparisons, or help finding the best deal.",
-    color: "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400",
-  },
-  {
-    icon: Zap,
-    title: "Flash Sales Daily",
-    desc: "Exclusive limited-time deals on top products. Up to 60% off every day.",
-    color: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
-  },
-  {
-    icon: Truck,
-    title: "Fast Delivery",
-    desc: "Nigeria-wide delivery with real-time tracking. Get your orders quickly.",
-    color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400",
-  },
-  {
-    icon: Shield,
-    title: "Secure & Trusted",
-    desc: "Stripe-powered payments. Your money and data are always protected.",
-    color: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
-  },
+const QUICK_ACTIONS = [
+  { icon: LayoutGrid, label: "Categories", href: "/account" },
+  { icon: Zap,        label: "Flash Sale",  href: "/account" },
+  { icon: Truck,      label: "Free Ship",   href: "/account" },
+  { icon: Shield,     label: "Vouchers",    href: "/account" },
 ];
 
+const CAT_COLORS = [
+  "#EC4899","#F97316","#10B981","#3B82F6",
+  "#8B5CF6","#06B6D4","#EF4444","#F59E0B","#14B8A6",
+];
 const CATEGORIES = [
-  { label: "Electronics", emoji: "💻" },
-  { label: "Fashion",     emoji: "👗" },
-  { label: "Beauty",      emoji: "💄" },
-  { label: "Sports",      emoji: "🏋️" },
-  { label: "Books",       emoji: "📚" },
-  { label: "Home",        emoji: "🏠" },
-  { label: "Shoes",       emoji: "👟" },
-  { label: "Toys",        emoji: "🎮" },
+  { label: "Electronics", Icon: Laptop },
+  { label: "Accessories", Icon: Watch },
+  { label: "Outdoor",     Icon: Mountain },
+  { label: "Shoes",       Icon: Footprints },
+  { label: "Beauty",      Icon: Heart },
+  { label: "Home",        Icon: HomeIcon },
+  { label: "Clothing",    Icon: Shirt },
+  { label: "Sports",      Icon: Dumbbell },
+  { label: "Books",       Icon: BookOpen },
+  { label: "Gaming",      Icon: Gamepad2 },
 ];
+
+const SHOP_LINKS = [
+  { href: "/account", label: "All Products" },
+  { href: "/account", label: "Flash Sale" },
+  { href: "/account", label: "New Arrivals" },
+  { href: "/account", label: "Ask AI" },
+];
+
+function NavDrawer() {
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <button className="h-8 w-8 flex items-center justify-center rounded-xl bg-white/15 hover:bg-white/25 transition-colors shrink-0">
+          <Menu className="h-4 w-4 text-white" />
+        </button>
+      </SheetTrigger>
+      <SheetContent side="left" className="w-72 p-0 flex flex-col">
+        <div className="bg-primary px-6 py-6 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">
+            <ShoppingBag className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-white text-lg leading-tight">AllMart</p>
+            <p className="text-xs text-white/70">Sign in to shop</p>
+          </div>
+        </div>
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          {SHOP_LINKS.map((item) => (
+            <SheetClose asChild key={item.label}>
+              <Link
+                href={item.href}
+                className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                  <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+                </span>
+                {item.label}
+              </Link>
+            </SheetClose>
+          ))}
+        </nav>
+        <div className="border-t border-border/50 px-4 py-4 space-y-2">
+          <SheetClose asChild>
+            <Link href="/account">
+              <Button className="w-full rounded-xl gap-2">
+                <Sparkles className="h-4 w-4" /> Sign in to shop
+              </Button>
+            </Link>
+          </SheetClose>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
 
 export default function Landing() {
+  const [query, setQuery] = useState("");
+  const [, setLocation] = useLocation();
+
+  const greeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (query.trim()) {
+      sessionStorage.setItem("initial_assistant_query", query);
+    }
+    setLocation("/account");
+  };
+
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-[#0D0B1A]">
+    <div className="flex flex-col min-h-[100dvh] bg-[#0D0B1A]">
 
-      {/* ── Nav bar ─────────────────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-            <ShoppingBag className="h-4 w-4 text-white" />
+      {/* ── Purple header card — same style as the store ─────────────────────── */}
+      <section className="bg-primary px-4 pb-5 pt-safe rounded-b-[28px] shadow-xl shadow-primary/30">
+
+        {/* Top bar */}
+        <div className="flex items-center gap-3 pt-3 pb-3">
+          <NavDrawer />
+
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-white/70 font-medium leading-none mb-0.5">
+              {greeting()} 👋
+            </p>
+            <p className="text-sm font-bold text-white leading-tight">
+              Find your perfect product
+            </p>
           </div>
-          <span className="text-lg font-extrabold text-white tracking-tight">AllMart</span>
-        </div>
-        <div className="flex items-center gap-2">
+
           <Link href="/account">
-            <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10 rounded-xl">
+            <button className="flex h-8 items-center gap-1 rounded-full bg-white/20 hover:bg-white/30 px-3 text-[11px] font-semibold text-white transition-colors">
               Sign in
-            </Button>
-          </Link>
-          <Link href="/account?tab=signup">
-            <Button size="sm" className="rounded-xl gap-1.5 bg-primary hover:bg-primary/90">
-              Get started <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          </Link>
-        </div>
-      </header>
-
-      {/* ── Hero ────────────────────────────────────────────────────────────── */}
-      <section className="flex-1 flex flex-col items-center justify-center text-center px-6 pt-8 pb-12">
-
-        {/* Badge */}
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary/20 border border-primary/30 px-4 py-1.5 mb-6">
-          <Star className="h-3.5 w-3.5 text-primary fill-primary" />
-          <span className="text-xs font-semibold text-primary">Nigeria's AI-Powered Marketplace</span>
-        </div>
-
-        {/* Headline */}
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-white leading-tight mb-4 max-w-lg">
-          Shop Smarter with{" "}
-          <span className="text-primary">AllMart AI</span>
-        </h1>
-        <p className="text-base text-white/60 max-w-sm mb-8 leading-relaxed">
-          Discover thousands of products, get AI-powered recommendations, and enjoy daily flash sales — all in one place.
-        </p>
-
-        {/* CTAs */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs sm:max-w-none sm:justify-center">
-          <Link href="/account">
-            <Button size="lg" className="w-full sm:w-auto rounded-2xl gap-2 bg-primary hover:bg-primary/90 h-12 px-8 text-base font-semibold shadow-lg shadow-primary/30">
-              <ShoppingBag className="h-5 w-5" /> Start Shopping
-            </Button>
-          </Link>
-          <Link href="/account">
-            <Button size="lg" variant="outline" className="w-full sm:w-auto rounded-2xl h-12 px-8 text-base font-semibold border-white/20 text-white hover:bg-white/10">
-              Sign in
-            </Button>
+            </button>
           </Link>
         </div>
 
-        {/* Social proof */}
-        <p className="mt-5 text-xs text-white/40">
-          Join thousands of shoppers across Nigeria
-        </p>
+        {/* AI Search bar */}
+        <form onSubmit={handleSearch}>
+          <div className="flex items-center bg-white/15 focus-within:bg-white/22 rounded-2xl px-4 py-2.5 gap-3 border border-white/20 transition-colors">
+            <Search className="h-4 w-4 text-white/50 shrink-0" />
+            <input
+              type="text"
+              placeholder="Search for products..."
+              className="flex-1 bg-transparent text-sm text-white placeholder:text-white/50 outline-none"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
+            <button
+              type="submit"
+              className="shrink-0 flex h-6 items-center gap-1 rounded-full bg-white/20 px-2.5 text-[11px] font-semibold text-white hover:bg-white/30 transition-colors"
+            >
+              <Sparkles className="h-3 w-3" /> Ask AI
+            </button>
+          </div>
+        </form>
       </section>
 
-      {/* ── Category chips ──────────────────────────────────────────────────── */}
-      <section className="px-6 pb-10">
-        <div className="flex flex-wrap justify-center gap-2 max-w-lg mx-auto">
-          {CATEGORIES.map(c => (
-            <Link key={c.label} href="/account">
-              <div className="flex items-center gap-1.5 rounded-full bg-white/8 border border-white/10 px-3.5 py-1.5 text-sm text-white/70 hover:bg-white/15 hover:text-white transition-colors cursor-pointer">
-                <span>{c.emoji}</span>
-                <span className="font-medium">{c.label}</span>
+      {/* ── Body ─────────────────────────────────────────────────────────────── */}
+      <div className="max-w-screen-xl mx-auto w-full px-4 space-y-6 py-5 pb-24">
+
+        {/* Promo banner */}
+        <Link href="/account">
+          <div className="relative overflow-hidden rounded-2xl bg-[#1e1150] px-6 py-5 flex items-center justify-between shadow-xl cursor-pointer hover:opacity-90 transition-opacity">
+            <div className="absolute -right-6 -top-6 h-36 w-36 rounded-full bg-primary/20 blur-2xl pointer-events-none" />
+            <div className="relative z-10 space-y-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white/90">
+                🔥 Limited Time
+              </span>
+              <p className="text-2xl font-extrabold text-white">Mega Sale</p>
+              <p className="text-sm text-white/70">Up to 60% Off</p>
+              <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-primary">
+                Shop Now <ArrowRight className="h-3 w-3" />
+              </div>
+            </div>
+            <div className="relative z-10 text-5xl select-none">🛍️</div>
+          </div>
+        </Link>
+
+        {/* Quick actions */}
+        <div className="grid grid-cols-4 gap-3">
+          {QUICK_ACTIONS.map(({ icon: Icon, label, href }) => (
+            <Link key={label} href={href}>
+              <div className="flex flex-col items-center gap-1.5 cursor-pointer group">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20 border border-primary/20 group-hover:bg-primary/30 transition-colors shadow">
+                  <Icon className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-[10px] font-medium text-white/60 text-center leading-tight">{label}</span>
               </div>
             </Link>
           ))}
         </div>
-      </section>
 
-      {/* ── Features ────────────────────────────────────────────────────────── */}
-      <section className="px-6 pb-16 max-w-2xl mx-auto w-full">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {FEATURES.map(f => {
-            const Icon = f.icon;
-            return (
-              <div key={f.title} className="rounded-2xl bg-white/5 border border-white/8 p-5">
-                <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl mb-3 ${f.color}`}>
-                  <Icon className="h-5 w-5" />
+        {/* Popular categories */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white">Popular Categories</h2>
+            <Link href="/account">
+              <span className="text-xs font-semibold text-primary hover:underline">See all</span>
+            </Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+            {CATEGORIES.map(({ label, Icon }, i) => (
+              <Link key={label} href="/account">
+                <div className="flex flex-col items-center gap-1.5 w-14 shrink-0 cursor-pointer">
+                  <div
+                    className="flex h-14 w-14 items-center justify-center rounded-2xl shadow"
+                    style={{ backgroundColor: CAT_COLORS[i % CAT_COLORS.length] }}
+                  >
+                    <Icon className="h-6 w-6 text-white" />
+                  </div>
+                  <span className="text-[10px] font-medium text-white/60 text-center leading-tight truncate w-full">{label}</span>
                 </div>
-                <p className="font-semibold text-white text-sm mb-1">{f.title}</p>
-                <p className="text-xs text-white/50 leading-relaxed">{f.desc}</p>
-              </div>
-            );
-          })}
+              </Link>
+            ))}
+          </div>
         </div>
-      </section>
 
-      {/* ── Footer CTA ──────────────────────────────────────────────────────── */}
-      <div className="border-t border-white/8 px-6 py-6 text-center">
-        <p className="text-xs text-white/30">
-          © 2025 AllMart · Built for Nigerian shoppers
-        </p>
+        {/* Sign-in prompt */}
+        <div className="rounded-2xl bg-primary/10 border border-primary/20 px-5 py-5 flex flex-col items-center text-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
+            <Sparkles className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="font-bold text-white text-sm">AI-Powered Shopping</p>
+            <p className="text-xs text-white/50 mt-0.5">Sign in to shop, track orders, and chat with our AI assistant</p>
+          </div>
+          <Link href="/account" className="w-full">
+            <Button className="w-full rounded-xl gap-2 bg-primary hover:bg-primary/90">
+              Get started <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
       </div>
     </div>
   );
