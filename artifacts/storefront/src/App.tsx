@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import NotFound from "@/pages/not-found";
 import { Layout } from "@/components/layout";
+import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import Products from "@/pages/products";
 import ProductDetail from "@/pages/product-detail";
@@ -56,7 +57,10 @@ function ProfileGate() {
   return null;
 }
 
-/** Redirect logged-in users from / to /dashboard, and guests from /dashboard to /account */
+/** Auth-based redirects:
+ *  - Guests at /home or /dashboard → /account (must log in first)
+ *  - Logged-in users at / (landing) → /home (the store)
+ */
 function AuthRedirect() {
   const [location, setLocation] = useLocation();
   const { data: meData, isLoading } = useGetCurrentUser();
@@ -65,8 +69,8 @@ function AuthRedirect() {
 
   useEffect(() => {
     if (isLoading) return;
-    if (isLoggedIn && location === "/") setLocation("/dashboard");
-    if (isGuest    && location === "/dashboard") setLocation("/account");
+    if (isLoggedIn && location === "/") setLocation("/home");
+    if (isGuest && (location === "/home" || location === "/dashboard")) setLocation("/account");
   }, [isLoading, isLoggedIn, isGuest, location, setLocation]);
 
   return null;
@@ -79,7 +83,8 @@ function Router() {
       <ProfileGate />
       <AuthRedirect />
       <Switch>
-        <Route path="/" component={Home} />
+        <Route path="/" component={Landing} />
+        <Route path="/home" component={Home} />
         <Route path="/dashboard" component={UserDashboard} />
         <Route path="/products" component={Products} />
         <Route path="/products/:slug" component={ProductDetail} />

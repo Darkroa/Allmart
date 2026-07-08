@@ -155,9 +155,9 @@ function BottomTabBar({
   return (
     <nav className="fixed bottom-0 inset-x-0 z-50 h-16 bg-background/95 backdrop-blur border-t border-border/50 flex items-stretch">
       {/* Shop */}
-      <Link href="/" className={tabCls("/")}>
+      <Link href="/home" className={tabCls("/home")}>
         <Home className="h-5 w-5" />
-        <span className={labelCls("/")}>Shop</span>
+        <span className={labelCls("/home")}>Shop</span>
       </Link>
 
       {/* Search */}
@@ -221,12 +221,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const cartItemCount =
     cart?.items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
 
-  const isHome = location === "/" || location === "/dashboard";
+  const isHome = location === "/home" || location === "/dashboard";
   const isStaff = !!(me && (me.role === "admin" || me.role === "pm"));
 
-  // Hide bottom nav on auth / admin pages
+  // Hide bottom nav on landing, auth, and admin pages
+  const isLanding = location === "/";
   const isAdminArea = location.startsWith("/admin");
-  const hideBottomNav = isAdminArea;
+  const hideBottomNav = isLanding || isAdminArea;
 
   async function handleSignOut() {
     await signOut();
