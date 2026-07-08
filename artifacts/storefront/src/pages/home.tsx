@@ -210,10 +210,10 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-[100dvh] bg-[#0D0B1A] dark:bg-[#0D0B1A] light:bg-[#F8F7FF]">
 
-      {/* ── Header — black card with purple accent strip underneath ───────────── */}
-      <section className="bg-[#0B0A14] px-4 pb-5 pt-safe">
+      {/* ── Header — black bar, actions only ────────────────────────────────── */}
+      <section className="bg-[#0B0A14] px-4 pb-4 pt-safe">
         {/* Top bar: logo | greeting+title | actions */}
-        <div className="flex items-center gap-3 pt-3 pb-4">
+        <div className="flex items-center gap-3 pt-3 pb-1">
           <ShopDrawerInner />
 
           {/* Greeting + title (compact, inline) */}
@@ -271,15 +271,17 @@ export default function Home() {
             </Link>
           </div>
         </div>
+      </section>
 
-        {/* Search bar */}
+      {/* ── Purple card — houses the search bar ─────────────────────────────── */}
+      <section className="bg-primary px-4 pt-4 pb-6 rounded-b-[28px] shadow-lg shadow-primary/30">
         <form onSubmit={handleSearch}>
-          <div className="flex items-center bg-white/10 focus-within:bg-white/15 rounded-2xl px-4 py-2.5 gap-3 border border-white/15 transition-colors">
-            <Search className="h-4 w-4 text-white/50 shrink-0" />
+          <div className="flex items-center bg-white/15 focus-within:bg-white/22 rounded-2xl px-4 py-2.5 gap-3 border border-white/20 transition-colors">
+            <Search className="h-4 w-4 text-white/60 shrink-0" />
             <input
               type="text"
               placeholder="Search for products..."
-              className="flex-1 bg-transparent text-sm text-white placeholder:text-white/50 outline-none"
+              className="flex-1 bg-transparent text-sm text-white placeholder:text-white/60 outline-none"
               value={query}
               onChange={e => setQuery(e.target.value)}
             />
@@ -291,9 +293,6 @@ export default function Home() {
           </div>
         </form>
       </section>
-
-      {/* Purple accent strip under the header, like the reference design */}
-      <div className="h-1.5 w-full bg-gradient-to-r from-primary/70 via-primary to-primary/70" />
 
       {/* ── Body ──────────────────────────────────────────────────────────────── */}
       <div className="max-w-screen-xl mx-auto w-full px-4 space-y-6 py-5 pb-12">
