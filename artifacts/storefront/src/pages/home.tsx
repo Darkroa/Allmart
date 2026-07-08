@@ -216,13 +216,10 @@ export default function Home() {
         <div className="flex items-center gap-3 pt-3 pb-1">
           <ShopDrawerInner />
 
-          {/* Greeting + title (compact, inline) */}
+          {/* Greeting (compact, inline) */}
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] text-white/50 font-medium leading-none mb-0.5">
-              {greeting()}{me ? `, ${me.name.split(" ")[0]}` : ""} 👋
-            </p>
             <p className="text-sm font-bold text-white leading-tight truncate">
-              Find your perfect product
+              {greeting()}{me ? `, ${me.name.split(" ")[0]}` : ""} 👋
             </p>
           </div>
 
@@ -274,7 +271,10 @@ export default function Home() {
       </section>
 
       {/* ── Purple card — houses the search bar ─────────────────────────────── */}
-      <section className="bg-primary px-4 pt-4 pb-6 rounded-b-[28px] shadow-lg shadow-primary/30">
+      <section className="bg-primary px-4 pt-5 pb-8 rounded-b-[28px] shadow-lg shadow-primary/30">
+        <p className="text-lg font-extrabold text-white leading-tight mb-3">
+          Find your perfect product <span className="text-white/90">With AI</span>
+        </p>
         <form onSubmit={handleSearch}>
           <div className="flex items-center bg-white/15 focus-within:bg-white/22 rounded-2xl px-4 py-2.5 gap-3 border border-white/20 transition-colors">
             <Search className="h-4 w-4 text-white/60 shrink-0" />
