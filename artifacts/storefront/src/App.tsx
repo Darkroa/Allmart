@@ -31,10 +31,11 @@ import Profile from "@/pages/profile";
 import Security from "@/pages/security";
 import Referral from "@/pages/referral";
 import UserDashboard from "@/pages/user-dashboard";
+import MyAccount from "@/pages/my-account";
 
 const queryClient = new QueryClient();
 
-const PROFILE_EXEMPT = ["/profile", "/account", "/signin", "/signup", "/reset-password"];
+const PROFILE_EXEMPT = ["/profile", "/my-account", "/account", "/signin", "/signup", "/reset-password"];
 
 function ProfileGate() {
   const [location, setLocation] = useLocation();
@@ -104,6 +105,7 @@ function Router() {
         <Route path="/profile" component={Profile} />
         <Route path="/security" component={Security} />
         <Route path="/referral" component={Referral} />
+        <Route path="/my-account" component={MyAccount} />
         <Route path="/admin" component={() => <Admin section="dashboard" />} />
         <Route path="/admin/users" component={() => <Admin section="users" />} />
         <Route path="/admin/orders" component={() => <Admin section="orders" />} />

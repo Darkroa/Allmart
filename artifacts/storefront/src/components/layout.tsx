@@ -132,16 +132,23 @@ function ShopDrawer() {
 function BottomTabBar({
   cartCount,
   isStaff,
+  isLoggedIn,
+  userInitial,
 }: {
   cartCount: number;
   isStaff: boolean;
+  isLoggedIn: boolean;
+  userInitial: string;
 }) {
   const [location] = useLocation();
 
-  const isActive = (href: string) =>
-    href === "/"
-      ? location === "/" || location === "/dashboard"
-      : location.startsWith(href);
+  const accountHref = isLoggedIn ? "/my-account" : "/account";
+
+  const isActive = (href: string) => {
+    if (href === accountHref && (location === "/my-account" || location === "/account")) return true;
+    if (href === "/"  ) return location === "/" || location === "/dashboard";
+    return location.startsWith(href);
+  };
 
   const tabCls = (href: string) =>
     `flex flex-col items-center justify-start pt-1 flex-1 gap-0.5 transition-colors ${
@@ -202,10 +209,22 @@ function BottomTabBar({
         <span className={labelCls("/orders")}>My Orders</span>
       </Link>
 
-      {/* Account */}
-      <Link href="/account" className={tabCls("/account")}>
-        <UserCircle2 className="h-5 w-5" />
-        <span className={labelCls("/account")}>Account</span>
+      {/* Account — avatar with initial when logged in, plain icon when guest */}
+      <Link href={accountHref} className={tabCls(accountHref)}>
+        {isLoggedIn ? (
+          <span
+            className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ring-2 ${
+              isActive(accountHref)
+                ? "bg-primary text-primary-foreground ring-primary"
+                : "bg-muted text-foreground ring-border"
+            }`}
+          >
+            {userInitial}
+          </span>
+        ) : (
+          <UserCircle2 className="h-5 w-5" />
+        )}
+        <span className={labelCls(accountHref)}>Account</span>
       </Link>
     </nav>
   );
@@ -228,9 +247,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // Hide bottom nav on landing, auth, and admin pages
   const isLanding = location === "/";
   const isAdminArea = location.startsWith("/admin");
+  // /my-account is the logged-in account hub — keep bottom nav visible there
   const isAuthPage = location === "/account" || location.startsWith("/verify") || location.startsWith("/reset");
   const hideBottomNav = isLanding || isAdminArea || isAuthPage;
-  const hideHeader = isHome || isAuthPage;
+  const hideHeader = isHome || isAuthPage || location === "/my-account";
 
   async function handleSignOut() {
     await signOut();
@@ -401,7 +421,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile-style bottom tab bar */}
       {!hideBottomNav && (
-        <BottomTabBar cartCount={cartItemCount} isStaff={isStaff} />
+        <BottomTabBar
+          cartCount={cartItemCount}
+          isStaff={isStaff}
+          isLoggedIn={!!me}
+          userInitial={me?.name ? me.name.charAt(0).toUpperCase() : "?"}
+        />
       )}
     </div>
   );
