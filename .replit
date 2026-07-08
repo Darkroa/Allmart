@@ -9,19 +9,7 @@ args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
 [workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "bash start.sh"
-waitForPort = 8080
-
-[workflows.workflow.metadata]
-outputType = "webview"
+runButton = "artifacts/storefront: web"
 
 [[workflows.workflow]]
 name = "artifacts/storefront: web"
@@ -56,7 +44,7 @@ isCanvasWorkflow = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = ""
+args = "pnpm --filter @workspace/mockup-sandbox run dev"
 
 [[workflows.workflow]]
 name = "artifacts/api-server: API Server"
