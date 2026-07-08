@@ -233,7 +233,7 @@ export default function Home() {
     <div className="flex flex-col min-h-[100dvh] bg-[#0D0B1A] dark:bg-[#0D0B1A] light:bg-[#F8F7FF]">
 
       {/* ── Purple header — rounded card floating on dark bg ───────────────────── */}
-      <section className="bg-primary px-4 pb-5 pt-safe rounded-b-[28px] shadow-xl shadow-primary/30">
+      <section className="bg-primary px-4 pb-8 pt-safe rounded-b-[32px] shadow-xl shadow-primary/30">
         {/* Top bar: hamburger | greeting+title | actions */}
         <div className="flex items-center gap-3 pt-3 pb-3">
           <ShopDrawerInner />
@@ -270,15 +270,15 @@ export default function Home() {
               </button>
             </Link>
 
-            {/* Bell / user menu */}
+            {/* Profile / user menu */}
             {me ? (
               isStaff ? (
                 <StaffSidebarTrigger role={me.role as "admin" | "pm"} name={me.name} />
               ) : (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors">
-                      <Bell className="h-4 w-4 text-white" />
+                    <button className="flex h-8 w-8 items-center justify-center rounded-full bg-white/25 ring-2 ring-white hover:bg-white/35 transition-colors font-bold text-white text-sm">
+                      {me.name ? me.name.charAt(0).toUpperCase() : <UserCircle2 className="h-4 w-4 text-white" />}
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-44">
@@ -385,17 +385,17 @@ export default function Home() {
                 <span className="text-xs font-semibold text-primary hover:underline">See all</span>
               </Link>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
+            <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
               {categoryGroups.map(({ slug, name }, idx) => {
                 const Icon = getCategoryIcon(slug);
                 const gradient = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
                 return (
                   <Link key={slug} href={`/products?category=${slug}`}>
-                    <button className="flex flex-col items-center gap-1.5 shrink-0 group">
-                      <span className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${gradient} shadow-sm group-hover:opacity-90 transition-opacity`}>
-                        <Icon className="h-6 w-6 text-white" />
+                    <button className="flex flex-col items-center gap-1 shrink-0 group">
+                      <span className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} shadow-sm group-hover:opacity-90 transition-opacity`}>
+                        <Icon className="h-4 w-4 text-white" />
                       </span>
-                      <span className="text-[10px] font-medium text-foreground/70 max-w-[56px] text-center leading-tight truncate">
+                      <span className="text-[9px] font-medium text-foreground/70 max-w-[44px] text-center leading-tight truncate">
                         {name}
                       </span>
                     </button>
@@ -408,26 +408,27 @@ export default function Home() {
 
         {/* Flash Sale */}
         <div>
+          {/* Title + countdown + see-all — all on one line */}
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-bold flex items-center gap-1.5">
-              <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" /> Flash Sale
-            </h2>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <h2 className="text-base font-bold flex items-center gap-1 shrink-0">
+                <Zap className="h-4 w-4 text-yellow-400 fill-yellow-400" /> Flash Sale
+              </h2>
+              <span className="text-[10px] text-foreground/55 shrink-0">Ends in</span>
+              <div className="flex items-center gap-1">
+                {[h, m, s].map((unit, i) => (
+                  <span key={i} className="flex items-center gap-1">
+                    <span className="flex h-5 min-w-[22px] items-center justify-center rounded bg-primary text-white text-[10px] font-bold px-1">
+                      {unit}
+                    </span>
+                    {i < 2 && <span className="text-primary font-bold text-[10px] leading-none">:</span>}
+                  </span>
+                ))}
+              </div>
+            </div>
             <Link href="/products?sort=sale">
-              <span className="text-xs font-semibold text-primary hover:underline">See all</span>
+              <span className="text-xs font-semibold text-primary hover:underline shrink-0 ml-2">See all</span>
             </Link>
-          </div>
-
-          {/* Countdown */}
-          <div className="flex items-center gap-2 mb-3 text-xs text-foreground/60 font-medium">
-            <span>Ends in</span>
-            {[h, m, s].map((unit, i) => (
-              <span key={i} className="flex items-center gap-2">
-                <span className="flex h-6 min-w-[28px] items-center justify-center rounded-md bg-primary text-white text-xs font-bold px-1.5">
-                  {unit}
-                </span>
-                {i < 2 && <span className="text-primary font-bold">:</span>}
-              </span>
-            ))}
           </div>
 
           {/* Products */}
