@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import NotFound from "@/pages/not-found";
 import { Layout } from "@/components/layout";
 import Landing from "@/pages/landing";
+import VideoPreview from "@/pages/video-preview";
 import Home from "@/pages/home";
 import Products from "@/pages/products";
 import ProductDetail from "@/pages/product-detail";
@@ -78,12 +79,20 @@ function AuthRedirect() {
 }
 
 function Router() {
+  const [location] = useLocation();
   useVisitorTracker();
+
+  // Full-screen video page — no nav, no layout chrome
+  if (location === "/video") {
+    return <VideoPreview />;
+  }
+
   return (
     <Layout>
       <ProfileGate />
       <AuthRedirect />
       <Switch>
+        <Route path="/video" component={VideoPreview} />
         <Route path="/" component={Landing} />
         <Route path="/home" component={Home} />
         <Route path="/dashboard" component={UserDashboard} />
