@@ -13,6 +13,7 @@
     "seed": "tsx src/seed.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.8",
     "bcryptjs": "^2.4.3",
     "drizzle-orm": "catalog:",
     "drizzle-zod": "^0.8.3",
